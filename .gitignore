@@ -1,0 +1,24 @@
+.venv/
+__pycache__/
+*.pyc
+data/raw/
+data/cache/*
+!data/cache/routes.json
+!data/cache/linked.json
+dist/
+site/
+node_modules/
+.pytest_cache/
+.env
+.env.*
+*.log
+/tmp-*.png
+# Local pipeline, prototypes, and planning notes are not part of the website.
+/config/
+/src/
+/tests/
+/reports/
+web/legacy-prototype/
+*.md
+pyproject.toml
+requirements.txt

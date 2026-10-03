@@ -1,0 +1,158 @@
+/* Page-level rules Base Web does not own: reset, map widget chrome, motion. */
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+body {
+  font-family: Inter, system-ui, 'Helvetica Neue', Arial, sans-serif;
+  color: #000;
+  background: #fff;
+  -webkit-font-smoothing: antialiased;
+}
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+.fr-visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+:focus-visible {
+  outline: 3px solid #000;
+  outline-offset: 2px;
+}
+
+/* MapLibre controls: 44 px touch targets, monochrome. */
+.maplibregl-ctrl-group {
+  border-radius: 999px !important;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16) !important;
+}
+.maplibregl-ctrl-group button {
+  width: 44px !important;
+  height: 44px !important;
+}
+.maplibregl-ctrl-attrib {
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.92) !important;
+}
+.maplibregl-ctrl-attrib.maplibregl-compact {
+  min-height: 44px;
+  min-width: 44px;
+}
+.maplibregl-ctrl-attrib-button {
+  width: 44px !important;
+  height: 44px !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+}
+.maplibregl-ctrl-attrib a {
+  color: #000 !important;
+  text-decoration: underline;
+}
+
+.fr-marker {
+  font: 500 12px/16px Inter, system-ui, sans-serif;
+  background: #000;
+  color: #fff;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  padding: 2px 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.fr-marker--end {
+  background: #fff;
+  color: #000;
+  border-color: #000;
+}
+.fr-marker--corner,
+.fr-marker--stop {
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  line-height: 16px;
+  text-align: center;
+  font-size: 11px;
+}
+.fr-marker--stop {
+  background: #fff;
+  color: #000;
+  border-color: #000;
+  border-radius: 4px;
+  width: auto;
+  min-width: 20px;
+  padding: 0 4px;
+}
+
+.fr-chooser {
+  font: 400 14px/20px Inter, system-ui, sans-serif;
+  display: grid;
+  gap: 6px;
+  padding-right: 20px;
+}
+.fr-chooser__title,
+.fr-chooser__more {
+  margin: 0;
+  color: #4b4b4b;
+  font-size: 12px;
+}
+.fr-chooser__item {
+  font: inherit;
+  display: grid;
+  text-align: left;
+  min-height: 44px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 16px;
+  background: #efefef;
+  color: #000;
+  cursor: pointer;
+}
+.fr-chooser__item:hover {
+  background: #e2e2e2;
+}
+.fr-chooser__kind {
+  font-size: 12px;
+  color: #4b4b4b;
+}
+.maplibregl-popup-close-button {
+  width: 44px;
+  height: 44px;
+  font-size: 20px;
+}
+.fr-marker--cursor {
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  background: #fff;
+  border: 3px solid #000;
+}
+
+.u-legend {
+  font-size: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

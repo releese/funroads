@@ -1,0 +1,36 @@
+{
+  "name": "funroads-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit -p . && vite build && node --test test/build.test.mjs",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "vitest run && node --test test/service-worker.test.mjs"
+  },
+  "dependencies": {
+    "@fontsource/inter": "5.3.0",
+    "baseui": "18.2.0",
+    "maplibre-gl": "6.11.2",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "styletron-engine-monolithic": "1.0.0",
+    "styletron-react": "6.1.1",
+    "uplot": "1.6.32"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.7",
+    "@types/node": "26.6.3",
+    "@types/react": "18.3.31",
+    "@types/react-dom": "18.3.7",
+    "@vitejs/plugin-react": "6.1.1",
+    "jsdom": "30.1.1",
+    "typescript": "5.9.3",
+    "vite": "8.3.1",
+    "vitest": "5.0.2"
+  }
+}
