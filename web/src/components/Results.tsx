@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useRef } from 'react';
+import { forwardRef } from 'react';
 import { styled } from 'baseui';
 import { Button, KIND as BKIND, SHAPE } from 'baseui/button';
 import type { Home } from '../data/raw';
@@ -115,21 +115,9 @@ interface ListProps {
   onOpen: (r: RouteView, el: HTMLElement) => void;
   onHover: (key: string | null) => void;
   onToggleFavorite: (key: string) => void;
-  /** Bumped when the map picks a route; the list scrolls to and focuses that card. */
-  focusRequest: { key: string; nonce: number } | null;
 }
 
-export function ResultsList({ results, home, selectedKey, shown, favorites, onShowMore, onOpen, onHover, onToggleFavorite, focusRequest }: ListProps) {
-  const refs = useRef(new Map<string, HTMLButtonElement>());
-  useEffect(() => {
-    if (!focusRequest) return;
-    const el = refs.current.get(focusRequest.key);
-    if (el) {
-      el.scrollIntoView({ block: 'nearest' });
-      el.focus({ preventScroll: true });
-    }
-  }, [focusRequest]);
-
+export function ResultsList({ results, home, selectedKey, shown, favorites, onShowMore, onOpen, onHover, onToggleFavorite }: ListProps) {
   if (!results.length) return null;
   const visible = results.slice(0, shown);
   return (
@@ -138,10 +126,6 @@ export function ResultsList({ results, home, selectedKey, shown, favorites, onSh
         {visible.map((r) => (
           <li key={r.key}>
             <ResultCard
-              ref={(el) => {
-                if (el) refs.current.set(r.key, el);
-                else refs.current.delete(r.key);
-              }}
               route={r}
               home={home}
               selected={r.key === selectedKey}

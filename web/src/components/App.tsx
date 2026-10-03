@@ -46,14 +46,12 @@ export function App({ dataBase }: { dataBase: string }) {
   const [fit, setFit] = useState<FitRequest | null>(null);
   const [shown, setShown] = useState(PAGE_SIZE);
   const [mapStatus, setMapStatus] = useState<MapStatus>('loading');
-  const [railOpen, setRailOpen] = useState(true);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(() => readRouteLocation().detail);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
   const [mapAttribution, setMapAttribution] = useState<HTMLElement | null>(null);
   const [cursorKm, setCursorKm] = useState<number | null>(null);
-  const [cardFocus, setCardFocus] = useState<{ key: string; nonce: number } | null>(null);
   const [favs, setFavs] = useState<Set<string>>(() => loadFavorites());
   const [favOnly, setFavOnly] = useState(false);
   const [favNames, setFavNames] = useState<Record<string, string>>(() => loadFavoriteNames());
@@ -81,7 +79,7 @@ export function App({ dataBase }: { dataBase: string }) {
 
   useEffect(() => {
     if (!saveFeedback) return;
-    const timer = setTimeout(() => setSaveFeedback(''), 6000);
+    const timer = setTimeout(() => setSaveFeedback(''), 3000);
     return () => clearTimeout(timer);
   }, [saveFeedback]);
 
@@ -194,7 +192,6 @@ export function App({ dataBase }: { dataBase: string }) {
   useEffect(() => setShown(PAGE_SIZE), [filters, favOnly, collectionId]);
 
   const detailVisible = !!selected && detailOpen;
-  const railVisible = railOpen && !(narrowWorkspace && detailVisible);
   const padding: Padding = { top: 72, right: 64, bottom: selected && !detailVisible ? isMobile ? 224 : 168 : 76, left: 24 };
 
   const requestFit = (bbox: FitRequest['bbox'] | null) => {
@@ -215,10 +212,11 @@ export function App({ dataBase }: { dataBase: string }) {
       writeRouteLocation(r.key, true, true);
       requestFit(r.bbox);
       setDetailOpen(true);
+      if (isMobile) setSheetOpen(false);
       setLegendOpen(false);
       requestAnimationFrame(() => detailHeading.current?.focus({ preventScroll: true }));
     },
-    [],
+    [isMobile],
   );
 
   const onMapSelect = useCallback(
@@ -231,16 +229,13 @@ export function App({ dataBase }: { dataBase: string }) {
       if (r) requestFit(r.bbox);
       const i = result.results.findIndex((x) => x.key === key);
       if (i >= 0) setShown((s) => Math.max(s, i + 1));
-      if (isMobile) {
-        setSheetOpen(false);
-      } else if (railVisible) {
-        setCardFocus({ key, nonce: ++nonce.current });
-      }
+      if (isMobile) setSheetOpen(false);
+      setHoverKey(null);
     },
-    [cat, result.results, isMobile, railVisible],
+    [cat, result.results, isMobile],
   );
   const browseRoute = (route: RouteView, from: HTMLElement) => {
-    if (!isMobile || mapStatus === 'unavailable') {
+    if (mapStatus === 'unavailable') {
       openRoute(route, from);
       return;
     }
@@ -251,9 +246,9 @@ export function App({ dataBase }: { dataBase: string }) {
     setLegendOpen(false);
     setHoverKey(null);
     setCursorKm(null);
-    setSheetOpen(false);
+    if (isMobile) setSheetOpen(false);
     requestFit(route.bbox);
-    requestAnimationFrame(() => sheetHandle.current?.focus({ preventScroll: true }));
+    if (isMobile) requestAnimationFrame(() => sheetHandle.current?.focus({ preventScroll: true }));
   };
   useEffect(() => {
     if (sheetOpen && sheetBody.current) sheetBody.current.scrollTop = browseScroll.current;
@@ -298,8 +293,11 @@ export function App({ dataBase }: { dataBase: string }) {
       if (document.querySelector('[role="listbox"]') || t?.closest('.maplibregl-popup')) return;
       if (document.querySelector('[data-baseweb="popover"]')) return;
       if (detailVisible) closeDetail();
+      else if (sheetOpen) {
+        setSheetOpen(false);
+        requestAnimationFrame(() => sheetHandle.current?.focus({ preventScroll: true }));
+      }
       else if (selected) clearSelection();
-      else if (isMobile && sheetOpen) setSheetOpen(false);
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
@@ -314,8 +312,8 @@ export function App({ dataBase }: { dataBase: string }) {
   }, [isMobile, detailVisible, filtersOpen]);
 
   useEffect(() => {
-    if (mapStatus === 'unavailable' && isMobile) setSheetOpen(true);
-  }, [mapStatus, isMobile]);
+    if (mapStatus === 'unavailable') setSheetOpen(true);
+  }, [mapStatus]);
 
   const cursor: LonLat | null = useMemo(
     () => (selected && cursorKm != null && selected.km > 0 ? pointAtFraction(selected.line, cursorKm / selected.km) : null),
@@ -335,7 +333,6 @@ export function App({ dataBase }: { dataBase: string }) {
       setShown={setShown}
       openRoute={browseRoute}
       setHoverKey={setHoverKey}
-      cardFocus={cardFocus}
       showSearch
       onOpenFilters={() => { setLegendOpen(false); openSurfaceLocation('filters'); setFiltersOpen(true); }}
       onRetry={() => setReloadToken((n) => n + 1)}
@@ -350,7 +347,7 @@ export function App({ dataBase }: { dataBase: string }) {
       onOpenCollection={(id) => {
         setCollectionId(id);
         setShown(PAGE_SIZE);
-        if (isMobile) setSheetOpen(true);
+        setSheetOpen(true);
       }}
       onCloseCollection={() => setCollectionId(null)}
     />
@@ -378,49 +375,24 @@ export function App({ dataBase }: { dataBase: string }) {
       <div ref={shellMain} className={css({ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, isolation: 'isolate' })}>
         <header
           className={css({
-            minHeight: isMobile ? '28px' : tokens.topBar,
-            pointerEvents: isMobile ? 'none' : 'auto',
-            position: isMobile ? 'absolute' : 'relative',
-            top: isMobile ? 'calc(8px + env(safe-area-inset-top))' : 'auto',
-            left: isMobile ? '12px' : 'auto',
-            right: isMobile ? '72px' : 'auto',
+            minHeight: '28px',
+            pointerEvents: 'none',
+            position: 'absolute',
+            top: 'calc(8px + env(safe-area-inset-top))',
+            left: '12px',
+            right: '72px',
             zIndex: 4,
             flex: 'none',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: '8px',
-            padding: isMobile ? '0' : `0 ${tokens.space.x3}`,
-            borderBottom: isMobile ? 'none' : `1px solid ${tokens.surfacePressed}`,
-            borderRadius: isMobile ? tokens.radiusCard : '0',
-            backgroundColor: isMobile ? 'transparent' : tokens.canvas,
+            padding: '0',
+            backgroundColor: 'transparent',
           })}
         >
           <div className={css({ display: 'flex', alignItems: 'baseline', gap: '12px', minWidth: 0 })}>
             <h1 className={css({ fontSize: isMobile ? '16px' : '20px', lineHeight: '24px', fontWeight: 700, margin: 0, whiteSpace: 'nowrap' })}>FunRoads NL</h1>
-            {!isMobile ? (
-              <span className={css({ fontSize: '14px', color: tokens.hairlineMid, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' })}>
-                Legal, enjoyable Dutch roads · pinned data from {formatDate(cat?.meta.routesGenerated)}
-              </span>
-            ) : null}
-          </div>
-          <div className={css({ display: 'flex', gap: '8px', flexShrink: 0, whiteSpace: 'nowrap' })}>
-            {!isMobile ? (
-              <Button
-                kind={BKIND.secondary}
-                shape={SHAPE.default}
-                size={SIZE.compact}
-                aria-expanded={railVisible}
-                aria-controls="discovery-rail"
-                onClick={() => {
-                  if (detailVisible && narrowWorkspace) { closeDetail(); setRailOpen(true); }
-                  else setRailOpen((o) => !o);
-                }}
-                overrides={{ BaseButton: { style: { minHeight: '44px' } } }}
-              >
-                <span style={{ whiteSpace: 'nowrap' }}>{railVisible ? 'Hide list' : 'Show list'}</span>
-              </Button>
-            ) : null}
           </div>
         </header>
 
@@ -433,24 +405,6 @@ export function App({ dataBase }: { dataBase: string }) {
             position: 'relative',
           })}
         >
-          {!isMobile ? (
-            <aside
-              hidden={!railVisible}
-              id="discovery-rail"
-              aria-label="Discover routes"
-              className={`fr-scroll ${css({
-                width: narrowWorkspace ? '340px' : tokens.railWidth,
-                flex: 'none',
-                overflowY: 'auto',
-                padding: `${tokens.space.sm} ${tokens.space.x2} ${tokens.space.x2}`,
-                borderRight: `1px solid ${tokens.surfacePressed}`,
-                backgroundColor: tokens.canvas,
-              })}`}
-            >
-              {rail}
-            </aside>
-          ) : null}
-
           <div onPointerDownCapture={() => { dismissOnly.current = legendOpen || !!document.querySelector('[role="listbox"], [data-baseweb="popover"]'); }}
             className={css({ flex: 1, minWidth: 0, minHeight: 0, overflow: 'hidden', position: 'relative', backgroundColor: tokens.canvasSofter })}>
             <MapView
@@ -500,14 +454,13 @@ export function App({ dataBase }: { dataBase: string }) {
               </Popover>
             </div>
             {!isMobile && selected && !detailVisible ? (
-              <section aria-label="Selected route" data-map-overlay="bottom" className={css({ position: 'absolute', bottom: '60px', left: '16px', right: '72px', maxWidth: '420px', backgroundColor: tokens.canvas, borderRadius: tokens.radiusCard, padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.16)' })}>
+              <section aria-label="Selected route" data-map-overlay="bottom" className={`fr-route-preview ${css({ backgroundColor: tokens.canvas, borderRadius: tokens.radiusCard, padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.16)' })}`}>
                 <KindLabel kind={selected.kind} color={selected.color} />
                 <strong style={{ display: 'block', margin: '6px 0', fontSize: 18 }}>{selected.name}</strong>
                 <RouteStats route={selected} home={filters.home} />
                 {excludedReasons.length ? <Caption>Selected route no longer matches these results.</Caption> : null}
                 <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                   <Button shape={SHAPE.default} size={SIZE.compact} onClick={(e) => openRoute(selected, e.currentTarget)} overrides={{ BaseButton: { style: { minHeight: '44px' } } }}>Details</Button>
-                  <Button kind={BKIND.secondary} shape={SHAPE.default} size={SIZE.compact} onClick={() => requestFit(selected.bbox)} overrides={{ BaseButton: { style: { minHeight: '44px' } } }}>Fit route</Button>
                 </div>
               </section>
             ) : null}
@@ -517,18 +470,24 @@ export function App({ dataBase }: { dataBase: string }) {
               </section>
             ) : null}
           </div>
-          {isMobile ? (
             <section
               aria-label="Routes"
-              data-map-overlay="bottom"
-              className={css({
+              hidden={!isMobile && narrowWorkspace && detailVisible}
+              data-map-overlay={!isMobile && sheetOpen ? 'left' : 'bottom'}
+              className={`fr-browse-panel ${css({
                 flex: 'none',
                 position: 'absolute',
                 bottom: 'calc(12px + env(safe-area-inset-bottom))',
                 left: '12px',
-                right: '12px',
-                maxHeight: 'calc(100% - 76px)',
-                height: mapStatus === 'unavailable' || (sheetOpen && shortViewport) ? '100%' : sheetOpen ? 'min(62%, 560px)' : 'auto',
+                right: isMobile ? '12px' : 'auto',
+                width: isMobile ? 'auto' : sheetOpen || mapStatus === 'unavailable'
+                  ? selected && narrowWorkspace && mapStatus !== 'unavailable' ? 'min(26.25em, calc(100% - 404px))' : '26.25em'
+                  : '15em',
+                maxWidth: 'calc(100% - 24px)',
+                maxHeight: 'calc(100% - 4.75em)',
+                height: mapStatus === 'unavailable' || (sheetOpen && shortViewport) ? '100%'
+                  : sheetOpen ? isMobile ? 'min(62%, 35em)' : '52em' : 'auto',
+                fontSize: '1rem',
                 display: 'flex',
                 flexDirection: 'column',
                 backgroundColor: tokens.canvas,
@@ -539,7 +498,7 @@ export function App({ dataBase }: { dataBase: string }) {
                 boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
                 overflow: 'hidden',
                 zIndex: 2,
-              })}
+              })}`}
             >
               <div className={css({ display: 'flex', flexDirection: 'column', flex: 'none' })}>
                 {mapStatus !== 'unavailable' ? (
@@ -558,7 +517,7 @@ export function App({ dataBase }: { dataBase: string }) {
                     <span>{sheetOpen ? 'Close results' : selected ? 'Back to results' : 'Browse routes'}</span>
                   </button>
                 ) : null}
-                {selected && !sheetOpen ? (
+                {isMobile && selected && !sheetOpen ? (
                   <div style={{ display: 'grid', gap: 12, padding: '8px 16px 16px' }}>
                     <div style={{ minWidth: 0 }}>
                       <KindLabel kind={selected.kind} color={selected.color} />
@@ -578,7 +537,6 @@ export function App({ dataBase }: { dataBase: string }) {
                 {rail}
               </div>
             </section>
-          ) : null}
         </main>
       </div>
 
@@ -622,8 +580,7 @@ export function App({ dataBase }: { dataBase: string }) {
 
 function restoreDetailFocus(opener: HTMLElement | null, key: string | null) {
   const card = key ? document.querySelector<HTMLElement>(`[data-route-key="${CSS.escape(key)}"]`) : null;
-  const target = [opener, card, document.querySelector<HTMLElement>('.fr-sheet-handle'),
-    document.querySelector<HTMLElement>('[aria-controls="discovery-rail"]')]
+  const target = [opener, card, document.querySelector<HTMLElement>('.fr-sheet-handle')]
     .find((element) => element?.isConnected && !element.closest('[hidden], [inert]'));
   target?.focus({ preventScroll: true });
 }
@@ -638,7 +595,7 @@ function MapStatusBanner({ status }: { status: MapStatus }) {
         ? 'Basemap tiles could not load, so routes are drawn on a plain background. The list still has every route.'
         : 'Some map tiles failed to load. The list still has every route.';
   return (
-    <div role="status" className={css({ position: 'absolute', top: '12px', left: '12px', right: '72px', maxWidth: '420px', zIndex: 1 })}>
+    <div role="status" className={css({ position: 'absolute', top: '44px', left: '12px', right: '72px', maxWidth: '420px', zIndex: 1 })}>
       <Notice tone={status === 'unavailable' ? 'warning' : 'info'}>{text}</Notice>
     </div>
   );
@@ -680,7 +637,6 @@ interface RailProps {
   setShown: (fn: (n: number) => number) => void;
   openRoute: (r: RouteView, el: HTMLElement) => void;
   setHoverKey: (k: string | null) => void;
-  cardFocus: { key: string; nonce: number } | null;
   showSearch: boolean;
   onOpenFilters: () => void;
   onRetry: () => void;
@@ -804,7 +760,6 @@ function RailContent(p: RailProps) {
             onOpen={p.openRoute}
             onHover={p.setHoverKey}
             onToggleFavorite={p.onToggleFavorite}
-            focusRequest={p.cardFocus}
           />
         ) : (
           <div style={{ background: tokens.canvasSoft, borderRadius: 16, padding: 32, textAlign: 'center' }}>

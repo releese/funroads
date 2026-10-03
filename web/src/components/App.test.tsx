@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BaseProvider } from 'baseui';
 import { Provider } from 'styletron-react';
@@ -38,26 +38,33 @@ const routes = validateRoutesDoc({
 beforeEach(async () => {
   localStorage.clear();
   window.history.replaceState(null, '', '/');
-  window.matchMedia = vi.fn((query: string) => ({
-    matches: query.includes('max-width: 767'), media: query,
-    addEventListener: vi.fn(), removeEventListener: vi.fn(),
-  } as unknown as MediaQueryList));
+  viewport(true);
   const { loadAll } = await import('../data/load');
   vi.mocked(loadAll).mockResolvedValue({ routes: { value: routes, error: null }, linked: { value: null, error: 'No linked data' } });
   HTMLElement.prototype.scrollIntoView = vi.fn();
 });
 afterEach(cleanup);
 
+function viewport(mobile: boolean, narrow = false) {
+  window.matchMedia = vi.fn((query: string) => ({
+    matches: query.includes('max-width: 767') ? mobile : query.includes('max-width: 1319') && narrow,
+    media: query, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+  } as unknown as MediaQueryList));
+}
+
 function mount() {
   render(<Provider value={new Client()}><BaseProvider theme={theme}><App dataBase="/" /></BaseProvider></Provider>);
 }
 
 describe('responsive interactions', () => {
-  it('keeps collapsed sheet controls hidden and opens them deliberately', async () => {
+  it.each([true, false])('keeps shared Browse controls hidden until opened (mobile=%s)', async (mobile) => {
+    viewport(mobile);
     const user = userEvent.setup();
     mount();
     await screen.findAllByText('1 route');
     expect(screen.getByRole('button', { name: 'Browse routes' })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('button', { name: /Hide list|Show list/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Legal, enjoyable Dutch roads/)).not.toBeInTheDocument();
     expect(screen.queryByRole('radio', { name: 'Zaandam' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Browse routes' }));
     expect(screen.getByRole('combobox', { name: 'Search a road or circuit area' })).toBeVisible();
@@ -94,6 +101,16 @@ describe('responsive interactions', () => {
     const navigate = dialog.getByRole('link', { name: 'Open in Google Maps' });
     expect(navigate.closest('footer')).toHaveClass('fr-detail-navigation');
     expect(dialog.getByRole('button', { name: 'Add to favorites' }).closest('header')).toHaveClass('fr-detail-actions');
+    const favorite = dialog.getByRole('button', { name: 'Add to favorites' });
+    expect(favorite).not.toHaveClass('fr-favorite-button');
+    expect(favorite.querySelector('span > svg')).toHaveAttribute('width', '20');
+    await user.click(favorite);
+    expect(dialog.getByRole('button', { name: 'Remove from favorites' })).toHaveAttribute('aria-pressed', 'true');
+    const close = dialog.getByRole('button', { name: 'Close details' });
+    expect(favorite).toHaveClass('fr-icon-button');
+    expect(close).toHaveClass('fr-icon-button');
+    expect(close.querySelector('span > svg')).toHaveAttribute('width', '20');
+    expect(close.querySelector('svg')).toHaveAttribute('stroke-width', '2');
     expect(dialog.queryByRole('button', { name: 'Back to map' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Close details' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
@@ -114,7 +131,8 @@ describe('responsive interactions', () => {
     await waitFor(() => expect(screen.queryByRole('group', { name: 'Map legend' })).not.toBeInTheDocument());
   });
 
-  it('previews a result on the map and resumes the same browse position', async () => {
+  it.each([true, false])('previews a result and resumes the same browse position (mobile=%s)', async (mobile) => {
+    viewport(mobile);
     const user = userEvent.setup();
     mount();
     await user.click(screen.getByRole('button', { name: 'Browse routes' }));
@@ -124,17 +142,22 @@ describe('responsive interactions', () => {
     fireEvent.scroll(sheet);
     await user.click(card);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(sheet).not.toBeVisible();
+    expect(screen.queryByRole('region', { name: 'Route details' })).not.toBeInTheDocument();
+    if (mobile) expect(sheet).not.toBeVisible();
+    else expect(sheet).toBeVisible();
     expect(screen.getByTestId('map-selection')).toHaveTextContent('sprint:test');
     expect(location.hash).not.toContain('detail=1');
     await user.click(screen.getByRole('button', { name: 'Details' }));
-    expect(await screen.findByRole('dialog')).toBeVisible();
+    expect(mobile ? await screen.findByRole('dialog') : await screen.findByRole('region', { name: 'Route details' })).toBeVisible();
     expect(location.hash).toContain('detail=1');
     await user.click(screen.getByRole('button', { name: 'Close details' }));
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(screen.queryByRole('region', { name: 'Route details' })).not.toBeInTheDocument();
+    });
     expect(card).toHaveAttribute('aria-current', 'true');
     expect(location.hash).not.toContain('detail=1');
-    await user.click(screen.getByRole('button', { name: 'Back to results' }));
+    if (mobile) await user.click(screen.getByRole('button', { name: 'Back to results' }));
     expect(screen.getByRole('button', { name: 'Close results' })).toHaveAttribute('aria-expanded', 'true');
     expect(sheet.scrollTop).toBe(140);
   });
@@ -241,22 +264,40 @@ describe('responsive interactions', () => {
     await waitFor(() => expect(document.querySelector('[data-baseweb="popover"]')).toBeNull());
   });
 
-  it('closes narrow desktop details coherently when showing the list', async () => {
-    window.matchMedia = vi.fn((query: string) => ({
-      matches: query.includes('max-width: 1319'), media: query,
-      addEventListener: vi.fn(), removeEventListener: vi.fn(),
-    } as unknown as MediaQueryList));
+  it('keeps successive desktop result selections in preview until Details is requested', async () => {
+    viewport(false, true);
+    const { loadAll } = await import('../data/load');
+    const twoRoutes = validateRoutesDoc({
+      ...routes.doc,
+      sprints: [...routes.doc.sprints, { ...routes.doc.sprints[0], id: 'other', name: 'Another Road Sprint' }],
+    });
+    vi.mocked(loadAll).mockResolvedValue({ routes: { value: twoRoutes, error: null }, linked: { value: null, error: 'No linked data' } });
     const user = userEvent.setup();
     mount();
+    await user.click(screen.getByRole('button', { name: 'Browse routes' }));
     const card = await screen.findByRole('button', { name: /Sprint Road fun average.*Test Road Sprint/ });
     await user.click(card);
+    expect(within(screen.getByRole('region', { name: 'Selected route' })).getByText('Test Road Sprint')).toBeVisible();
+    expect(location.hash).not.toContain('detail=1');
+    await user.click(screen.getByRole('button', { name: /Sprint Road fun average.*Another Road Sprint/ }));
+    expect(within(screen.getByRole('region', { name: 'Selected route' })).getByText('Another Road Sprint')).toBeVisible();
+    expect(screen.queryByRole('region', { name: 'Route details' })).not.toBeInTheDocument();
+    expect(location.hash).not.toContain('detail=1');
+    expect(screen.queryByRole('button', { name: 'Fit route' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Overlapping routes on map' }));
+    expect(screen.getByRole('button', { name: 'Close results' })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('combobox', { name: 'Search a road or circuit area' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Details' }));
     expect(screen.getByRole('region', { name: 'Route details' })).toHaveClass('fr-detail-panel');
+    expect(screen.queryByRole('button', { name: 'Back to results' })).not.toBeInTheDocument();
     expect(location.hash).toContain('detail=1');
-    await user.click(screen.getByRole('button', { name: 'Show list' }));
+    await user.click(screen.getByRole('button', { name: 'Close details' }));
     await waitFor(() => expect(screen.queryByRole('region', { name: 'Route details' })).not.toBeInTheDocument());
     expect(location.hash).not.toContain('detail=1');
-    expect(card).toBeVisible();
-    expect(screen.getByTestId('map-selection')).toHaveTextContent('sprint:test');
+    expect(screen.getByRole('button', { name: 'Close results' })).toHaveAttribute('aria-expanded', 'true');
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Back to results' })).toHaveFocus());
+    expect(screen.getByTestId('map-selection')).toHaveTextContent('sprint:other');
   });
 
   it('restores visible focus after closing a directly linked mobile detail', async () => {
@@ -267,6 +308,25 @@ describe('responsive interactions', () => {
     await user.click(screen.getByRole('button', { name: 'Close details' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Back to results' })).toHaveFocus());
     expect(screen.getByTestId('map-selection')).toHaveTextContent('sprint:test');
+  });
+
+  it('dismisses save feedback after three seconds without clearing the saved route', async () => {
+    const user = userEvent.setup();
+    mount();
+    await user.click(screen.getByRole('button', { name: 'Browse routes' }));
+    const favorite = await screen.findByRole('button', { name: 'Save Test Road Sprint to favorites' });
+    vi.useFakeTimers();
+    try {
+      fireEvent.click(favorite);
+      expect(screen.getByRole('status')).toHaveTextContent('Route saved.');
+      act(() => vi.advanceTimersByTime(2999));
+      expect(screen.getByRole('status')).toBeInTheDocument();
+      act(() => vi.advanceTimersByTime(1));
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Remove Test Road Sprint from favorites' })).toHaveAttribute('aria-pressed', 'true');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('reports failed persistence when removing stale favorites', async () => {

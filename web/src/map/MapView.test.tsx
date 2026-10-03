@@ -44,5 +44,27 @@ it('fits around measured detail and preview bounds without discarding them on sh
   expect(fitPadding(container, base)).toEqual({ ...base, right: 404 });
   overlay.dataset.mapOverlay = 'bottom';
   expect(fitPadding(container, base)).toEqual({ ...base, top: 24, bottom: 247 });
+  const handle = document.createElement('section');
+  handle.dataset.mapOverlay = 'bottom';
+  handle.getBoundingClientRect = () => ({ top: 319, width: 240, height: 44 } as DOMRect);
+  main.append(handle);
+  expect(fitPadding(container, base)).toEqual({ ...base, top: 24, bottom: 247 });
   expect(base.bottom).toBe(76);
+});
+
+it('reserves desktop Browse on the left rather than pushing routes above its full height', () => {
+  const main = document.createElement('main');
+  const container = document.createElement('div');
+  const browse = document.createElement('section');
+  const preview = document.createElement('section');
+  main.append(container, browse, preview);
+  Object.defineProperties(container, { clientWidth: { value: 1920 }, clientHeight: { value: 1080 } });
+  container.getBoundingClientRect = () => ({ left: 0, right: 1920, bottom: 1080 } as DOMRect);
+  browse.dataset.mapOverlay = 'left';
+  browse.getBoundingClientRect = () => ({ left: 12, right: 432, top: 236, width: 420, height: 832 } as DOMRect);
+  preview.dataset.mapOverlay = 'bottom';
+  preview.getBoundingClientRect = () => ({ left: 1428, top: 880, width: 420, height: 155 } as DOMRect);
+  expect(fitPadding(container, { left: 24, right: 64, top: 72, bottom: 168 })).toEqual({
+    left: 444, right: 64, top: 72, bottom: 212,
+  });
 });

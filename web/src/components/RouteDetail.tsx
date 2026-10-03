@@ -58,6 +58,13 @@ function Row({ label, children }: { label: React.ReactNode; children: React.Reac
   );
 }
 
+const headerIconStyle = {
+  minHeight: '44px', minWidth: '44px', padding: '0', backgroundColor: 'transparent',
+  boxShadow: 'none', color: tokens.hairlineMid,
+  ':hover': { backgroundColor: 'transparent', color: tokens.ink },
+  ':active': { backgroundColor: 'transparent', color: tokens.ink },
+};
+
 export const RouteDetail = forwardRef<HTMLHeadingElement, Props>(function RouteDetail(
   { route: r, home, allRoutes, generated, excludedReasons, favorite, onClose, onOpen, onToggleFavorite, onCursorKm },
   headingRef,
@@ -78,19 +85,21 @@ export const RouteDetail = forwardRef<HTMLHeadingElement, Props>(function RouteD
       <header className="fr-detail-actions">
         <KindLabel kind={r.kind} color={r.color} />
         <Button
-          kind={BKIND.secondary}
-          shape={SHAPE.square}
+          kind={BKIND.tertiary}
+          shape={SHAPE.circle}
           size={SIZE.compact}
           aria-pressed={favorite}
           aria-label={favorite ? 'Remove from favorites' : 'Add to favorites'}
           title={favorite ? 'Remove from favorites' : 'Add to favorites'}
           onClick={() => onToggleFavorite(r.key)}
-          overrides={{ BaseButton: { style: { minHeight: '44px', minWidth: '44px' } } }}
+          overrides={{ BaseButton: { props: { className: 'fr-icon-button' },
+            style: { ...headerIconStyle, color: favorite ? tokens.ink : tokens.hairlineMid } } }}
         >
-          <StatIcon name="favorite" size={20} filled={favorite} />
+          <span aria-hidden="true"><StatIcon name="favorite" size={20} filled={favorite} /></span>
         </Button>
-        <Button kind={BKIND.secondary} shape={SHAPE.square} size={SIZE.compact} onClick={onClose} aria-label="Close details" title="Close details" overrides={{ BaseButton: { style: { minHeight: '44px', minWidth: '44px' } } }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+        <Button kind={BKIND.tertiary} shape={SHAPE.circle} size={SIZE.compact} onClick={onClose} aria-label="Close details" title="Close details"
+          overrides={{ BaseButton: { props: { className: 'fr-icon-button' }, style: headerIconStyle } }}>
+          <span aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19" /></svg></span>
         </Button>
       </header>
 

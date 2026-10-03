@@ -126,7 +126,8 @@ export function fitPadding(container: HTMLElement, requested: Padding): Padding 
     const rect = overlay.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
     if (overlay.dataset.mapOverlay === 'right') p.right = Math.max(p.right, bounds.right - rect.left + 12);
-    else p.bottom = Math.max(76, bounds.bottom - rect.top + 12);
+    else if (overlay.dataset.mapOverlay === 'left') p.left = Math.max(p.left, rect.right - bounds.left + 12);
+    else p.bottom = Math.max(p.bottom, bounds.bottom - rect.top + 12);
   });
   const { clientWidth: w, clientHeight: h } = container;
   const fitX = p.left + p.right < w - 80;
@@ -419,7 +420,7 @@ function MapViewImpl(props: Props) {
     const map = mapRef.current;
     if (!map || !props.fit) return;
     const [w, s, e, n] = props.fit.bbox;
-    // The rail may have just collapsed in the same render; fit to the new size.
+    // Browse/detail overlays may have changed in the same render.
     map.resize();
     map.fitBounds(
       [
