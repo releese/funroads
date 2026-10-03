@@ -1,11 +1,14 @@
 import { memo, useEffect, useRef } from 'react';
 import * as maplibregl from 'maplibre-gl';
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import type { GeoJSONSource, Map as MLMap, StyleSpecification } from 'maplibre-gl';
 import type * as GeoJSON from 'geojson';
 import type { LonLat } from '../data/raw';
 import { KIND_LABEL, stopPin, type Kind, type RouteView } from '../data/model';
 import { DASH, visibleLines, type BBox } from './geo';
 import { useLatest } from '../hooks';
+
+maplibregl.setWorkerUrl(workerUrl);
 
 export type MapStatus = 'loading' | 'ready' | 'basemap-failed' | 'tiles-partial' | 'unavailable';
 

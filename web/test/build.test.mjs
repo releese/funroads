@@ -14,6 +14,11 @@ test('publishes only current build files and a complete, matching offline versio
     .filter((entry) => entry.isFile())
     .map((entry) => `${entry.parentPath.replaceAll('\\', '/')}/${entry.name}`);
   assert.equal(files.length, context.entries.length + 1);
+  const worker = context.entries.find(({ file }) => /assets\/maplibre-gl-worker-[^/]+\.js$/.test(file));
+  assert(worker, 'MapLibre worker must be bundled and included in the offline cache');
+  const scripts = context.entries.filter(({ file }) => /assets\/index-[^/]+\.js$/.test(file));
+  assert(scripts.some(({ file }) => readFileSync(new URL(file, site), 'utf8')
+    .includes(worker.file.split('/').at(-1))), 'App must reference the bundled worker');
   for (const { file, integrity } of context.entries) {
     const bytes = readFileSync(new URL(file, site));
     assert.equal(integrity, `sha256-${createHash('sha256').update(bytes).digest('base64')}`);
