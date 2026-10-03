@@ -56,7 +56,7 @@ export function ProfileChart({ circuit, totalKm, onCursorKm }: Props) {
     try {
       plot = new uPlot(
         {
-          width: Math.max(260, el.clientWidth),
+          width: Math.max(1, el.clientWidth),
           height: 180,
           scales: { x: { time: false }, curv: { range: [0, 1] } },
           series: [
@@ -102,7 +102,7 @@ export function ProfileChart({ circuit, totalKm, onCursorKm }: Props) {
     } catch {
       return;
     }
-    const ro = new ResizeObserver(() => plot?.setSize({ width: Math.max(260, el.clientWidth), height: 180 }));
+    const ro = new ResizeObserver(() => plot?.setSize({ width: Math.max(1, el.clientWidth), height: 180 }));
     ro.observe(el);
     const leave = () => cb.current(null);
     el.addEventListener('mouseleave', leave);

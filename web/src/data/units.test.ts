@@ -12,7 +12,7 @@ import {
   validGmaps,
   type RouteView,
 } from './model';
-import { activePills, applyFilters, clearPill, DEFAULT_FILTERS, resetFilters } from './filters';
+import { activePills, applyFilters, clearPill, DEFAULT_FILTERS, resetFilters, typeMatches } from './filters';
 import { loadFavoriteNames, loadFavorites, saveFavoriteNames, saveFavorites, toggleFavorite } from './favorites';
 import { buildSearchIndex, searchSuggestions } from './search';
 import { CIRCUIT_INK, OVERLAP_MIN_SHARE, spatialInfo, TINTS, type SpatialItem } from './spatial';
@@ -138,14 +138,38 @@ describe('model helpers', () => {
 });
 
 describe('filter pills', () => {
+  it('filters by minimum fun on the displayed 0–100 scale and clears it', () => {
+    const { doc } = validateRoutesDoc({ routes: [], sprints: [sprint('a')] });
+    const cat = buildCatalogue(doc, null);
+    const threshold = { ...DEFAULT_FILTERS, minFun: 60 };
+    expect(applyFilters(cat.routes, threshold).results).toHaveLength(1);
+    expect(applyFilters(cat.routes, { ...threshold, minFun: 65 }).results).toHaveLength(0);
+    expect(activePills(threshold)).toContainEqual({ id: 'minFun', label: 'Fun ≥ 60' });
+    expect(clearPill(threshold, 'minFun').minFun).toBe(0);
+    expect(resetFilters(threshold).minFun).toBe(0);
+  });
   it('lists, clears and resets filters while keeping home', () => {
-    const f = { ...DEFAULT_FILTERS, home: 'Haarlem' as const, scope: 'nearby' as const, kmMin: 10, window: '2026-09-28 08:00' };
-    const ids = activePills(f, formatWindow).map((p) => p.id);
-    expect(ids).toEqual(['scope', 'kmRange', 'window']);
+    const f = { ...DEFAULT_FILTERS, home: 'Haarlem' as const, scope: 'nearby' as const, kmMin: 10 };
+    const ids = activePills(f).map((p) => p.id);
+    expect(ids).toEqual(['scope', 'kmRange']);
     expect(clearPill(f, 'kmRange').kmMin).toBe(DEFAULT_FILTERS.kmMin);
     expect(clearPill(f, 'scope').scope).toBe('national');
     expect(resetFilters(f)).toEqual({ ...DEFAULT_FILTERS, home: 'Haarlem' });
   });
+  it('combines route families and applies linked shape only to linked routes', () => {
+    const f = { ...DEFAULT_FILTERS, type: ['circuit', 'linked'] as ('circuit' | 'linked')[], linkedShape: 'loop' as const };
+    expect(typeMatches('circuit', f)).toBe(true);
+    expect(typeMatches('linked-loop', f)).toBe(true);
+    expect(typeMatches('linked-open', f)).toBe(false);
+    expect(typeMatches('sprint', f)).toBe(false);
+    expect(typeMatches('circuit', { ...f, type: [] })).toBe(false);
+  });
+});
+
+it('reports whether favorite changes could actually be persisted', () => {
+  expect(saveFavorites(new Set(['sprint:a']), null)).toBe(false);
+  expect(saveFavorites(new Set(['sprint:a']), { setItem: () => { throw new Error('Quota'); } })).toBe(false);
+  expect(saveFavorites(new Set(['sprint:a']), { setItem: () => {} })).toBe(true);
 });
 
 describe('formatting', () => {

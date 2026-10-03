@@ -2,6 +2,8 @@ import type { Home } from './raw';
 import type { Kind, RouteView } from './model';
 
 export type TypeTab = 'all' | 'circuit' | 'linked' | 'sprint';
+export const ROUTE_TYPES = ['circuit', 'linked', 'sprint'] as const;
+export type RouteFamily = typeof ROUTE_TYPES[number];
 export type LinkedShape = 'any' | 'open' | 'loop';
 export type Profile = 'balanced' | 'scenic' | 'technical' | 'quiet';
 export type SortKey = 'profile' | 'funKm' | 'score' | 'shortest' | 'longest' | 'nearest';
@@ -16,7 +18,7 @@ export interface Filters {
   scope: Scope;
   /** Straight-line view radius; only used in the nearby scope. Never a mining limit. */
   radiusKm: number;
-  type: TypeTab;
+  type: TypeTab | RouteFamily[];
   linkedShape: LinkedShape;
   profile: Profile;
   sort: SortKey;
@@ -24,7 +26,7 @@ export interface Filters {
   kmMin: number;
   kmMax: number;
   maxDriveMin: number | null;
-  window: string | null;
+  minFun: number;
   minScenery: number;
   minQuiet: number;
   minCorners: number;
@@ -45,7 +47,7 @@ export const DEFAULT_FILTERS: Filters = {
   kmMin: KM_LIMITS.min,
   kmMax: KM_LIMITS.max,
   maxDriveMin: null,
-  window: null,
+  minFun: 0,
   minScenery: 0,
   minQuiet: 0,
   minCorners: 0,
@@ -59,16 +61,12 @@ export const PROFILE_LABEL: Record<Profile, string> = {
 };
 
 export function typeMatches(kind: Kind, f: Pick<Filters, 'type' | 'linkedShape'>): boolean {
-  switch (f.type) {
-    case 'all':
-      return true;
-    case 'circuit':
-      return kind === 'circuit';
-    case 'sprint':
-      return kind === 'sprint';
-    case 'linked':
-      return (kind === 'linked-open' || kind === 'linked-loop') && linkedShapeOk(kind, f.linkedShape);
-  }
+  const family = kind === 'linked-open' || kind === 'linked-loop' ? 'linked' : kind;
+  return selectedTypes(f).includes(family) && (family !== 'linked' || linkedShapeOk(kind, f.linkedShape));
+}
+
+export function selectedTypes(f: Pick<Filters, 'type'>): readonly RouteFamily[] {
+  return Array.isArray(f.type) ? f.type : f.type === 'all' ? ROUTE_TYPES : [f.type];
 }
 
 function linkedShapeOk(kind: Kind, shape: LinkedShape): boolean {
@@ -94,7 +92,7 @@ export function exclusionReasons(r: RouteView, f: Filters): string[] {
     if (r.driveMin == null) out.push('Its drive time is unknown');
     else if (r.driveMin > f.maxDriveMin) out.push(`Its drive time (${r.driveMin} min) is over ${f.maxDriveMin} min`);
   }
-  if (f.window && !r.windows.includes(f.window)) out.push('It was not accessible in the chosen sample window');
+  if (r.funScore < f.minFun) out.push(`Fun score ${Math.round(r.funScore)} is below ${f.minFun}`);
   if (r.dims.scenery < f.minScenery) out.push(`Scenery ${r.dims.scenery} is below ${f.minScenery}`);
   if (r.dims.quiet < f.minQuiet) out.push(`Quiet ${r.dims.quiet} is below ${f.minQuiet}`);
   if (r.dims.corners < f.minCorners) out.push(`Corners ${r.dims.corners} is below ${f.minCorners}`);
@@ -180,16 +178,16 @@ export interface ActivePill {
   label: string;
 }
 
-export function activePills(f: Filters, formatWindow: (w: string) => string): ActivePill[] {
+export function activePills(f: Filters): ActivePill[] {
   const pills: ActivePill[] = [];
   if (f.scope === 'nearby') pills.push({ id: 'scope', label: `Within ${f.radiusKm} km straight-line of ${f.home}` });
   if (f.search) pills.push({ id: 'search', label: f.search.kind === 'road' ? `Road: ${f.search.name}` : `Area: ${f.search.name}` });
-  if (f.linkedShape !== 'any' && f.type === 'linked')
+  if (f.linkedShape !== 'any' && selectedTypes(f).includes('linked'))
     pills.push({ id: 'linkedShape', label: f.linkedShape === 'open' ? 'Linked: ends elsewhere' : 'Linked: returns to start' });
   if (f.kmMin !== DEFAULT_FILTERS.kmMin || f.kmMax !== DEFAULT_FILTERS.kmMax)
     pills.push({ id: 'kmRange', label: `${f.kmMin}–${f.kmMax} km long` });
   if (f.maxDriveMin != null) pills.push({ id: 'maxDriveMin', label: `Drive ≤ ${f.maxDriveMin} min` });
-  if (f.window) pills.push({ id: 'window', label: `Sampled ${formatWindow(f.window)}` });
+  if (f.minFun) pills.push({ id: 'minFun', label: `Fun ≥ ${f.minFun}` });
   if (f.minScenery) pills.push({ id: 'minScenery', label: `Scenery ≥ ${f.minScenery}` });
   if (f.minQuiet) pills.push({ id: 'minQuiet', label: `Quiet ≥ ${f.minQuiet}` });
   if (f.minCorners) pills.push({ id: 'minCorners', label: `Corners ≥ ${f.minCorners}` });

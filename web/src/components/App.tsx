@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStyletron } from 'baseui';
 import { Button, KIND as BKIND, SHAPE, SIZE } from 'baseui/button';
-import { Checkbox, STYLE_TYPE as CHECK_STYLE } from 'baseui/checkbox';
 import { Spinner } from 'baseui/spinner';
-import { Modal, ModalBody, ModalHeader, ModalFooter, ModalButton, ROLE } from 'baseui/modal';
+import { Modal, ModalBody, ModalHeader, ModalFooter, ModalButton } from 'baseui/modal';
+import { Popover, PLACEMENT } from 'baseui/popover';
 import type { LonLat } from '../data/raw';
 import { buildCatalogue, buildCollections, type Catalogue, type Collection, type RouteView } from '../data/model';
 import { applyFilters, DEFAULT_FILTERS, exclusionReasons, resetFilters, type Filters } from '../data/filters';
@@ -15,10 +15,13 @@ import { MapView, type FitRequest, type MapStatus, type Padding } from '../map/M
 import { pointAtFraction, unionBBox, MAX_CONTEXT_LINES } from '../map/geo';
 import { useDebounced, useMediaQuery } from '../hooks';
 import { MQ, tokens } from '../theme';
+import { closeSurfaceLocation, openSurfaceLocation, readRouteLocation, writeRouteLocation } from '../navigation';
+import { PwaStatus } from './PwaStatus';
 import { Controls } from './Controls';
+import { DiscoveryControls, RouteTypeChoices } from './DiscoveryControls';
 import { ResultsList, PAGE_SIZE } from './Results';
 import { RouteDetail } from './RouteDetail';
-import { Caption, KindGlyph, Notice, SAFETY_NOTE, SectionTitle } from './ui';
+import { Caption, Disclosure, KindGlyph, KindLabel, Notice, RouteStats, SAFETY_NOTE, SectionTitle, StatIcon } from './ui';
 
 interface LoadState {
   status: 'loading' | 'ready' | 'error';
@@ -32,43 +35,88 @@ const EMPTY_POOL: RouteView[] = [];
 export function App({ dataBase }: { dataBase: string }) {
   const [css] = useStyletron();
   const isMobile = useMediaQuery(MQ.mobile);
-  const isTablet = useMediaQuery(MQ.tablet);
   const reducedMotion = useMediaQuery(MQ.reducedMotion);
-  const coarsePointer = useMediaQuery(MQ.coarsePointer);
+  const narrowWorkspace = useMediaQuery(MQ.narrowWorkspace);
+  const shortViewport = useMediaQuery(MQ.shortViewport);
 
   const [load, setLoad] = useState<LoadState>({ status: 'loading', catalogue: null, problems: [], progress: '' });
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [selectedKey, setSelectedKey] = useState<string | null>(() => readRouteLocation().key);
   const [hoverKey, setHoverKey] = useState<string | null>(null);
   const [fit, setFit] = useState<FitRequest | null>(null);
   const [shown, setShown] = useState(PAGE_SIZE);
   const [mapStatus, setMapStatus] = useState<MapStatus>('loading');
   const [railOpen, setRailOpen] = useState(true);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [mobileDetail, setMobileDetail] = useState(false);
-  const [aboutOpen, setAboutOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(() => readRouteLocation().detail);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [legendOpen, setLegendOpen] = useState(false);
+  const [mapAttribution, setMapAttribution] = useState<HTMLElement | null>(null);
   const [cursorKm, setCursorKm] = useState<number | null>(null);
   const [cardFocus, setCardFocus] = useState<{ key: string; nonce: number } | null>(null);
   const [favs, setFavs] = useState<Set<string>>(() => loadFavorites());
   const [favOnly, setFavOnly] = useState(false);
   const [favNames, setFavNames] = useState<Record<string, string>>(() => loadFavoriteNames());
   const [collectionId, setCollectionId] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
+  const [saveFeedback, setSaveFeedback] = useState('');
 
   const onToggleFavorite = useCallback((key: string) => {
-    setFavs((s) => {
-      const next = toggleFavorite(s, key);
-      saveFavorites(next);
-      return next;
-    });
-  }, []);
+    const next = toggleFavorite(favs, key);
+    const persisted = saveFavorites(next);
+    setFavs(next);
+    setSaveFeedback(persisted ? next.has(key) ? 'Route saved.' : 'Route removed from saved.'
+      : 'Browser storage is unavailable. Saved changes last only for this session.');
+  }, [favs]);
 
   const opener = useRef<HTMLElement | null>(null);
+  const sheetHandle = useRef<HTMLButtonElement>(null);
+  const sheetBody = useRef<HTMLDivElement>(null);
+  const browseScroll = useRef(0);
   const detailHeading = useRef<HTMLHeadingElement>(null);
   const shellMain = useRef<HTMLDivElement>(null);
   const nonce = useRef(0);
+  const dismissOnly = useRef(false);
+  const returningKey = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!saveFeedback) return;
+    const timer = setTimeout(() => setSaveFeedback(''), 6000);
+    return () => clearTimeout(timer);
+  }, [saveFeedback]);
+
+  useEffect(() => {
+    const restore = () => {
+      if (returningKey.current) {
+        writeRouteLocation(returningKey.current, false);
+        returningKey.current = null;
+      }
+      const route = readRouteLocation();
+      const returningFromDetail = !!document.getElementById('detail-heading') && !route.detail;
+      setSelectedKey(route.key);
+      setDetailOpen(route.detail);
+      setLegendOpen(false);
+      setFiltersOpen(window.history.state?.funroadsSurface === 'filters');
+      setCursorKm(null);
+      if (returningFromDetail) requestAnimationFrame(() => {
+        restoreDetailFocus(opener.current, route.key);
+      });
+    };
+    window.addEventListener('popstate', restore);
+    window.addEventListener('hashchange', restore);
+    return () => {
+      window.removeEventListener('popstate', restore);
+      window.removeEventListener('hashchange', restore);
+    };
+  }, []);
+
+  useEffect(() => {
+    setLegendOpen(false);
+  }, [isMobile, narrowWorkspace]);
 
   useEffect(() => {
     let cancelled = false;
+    setLoad((s) => ({ ...s, status: 'loading', progress: '' }));
     loadAll(dataBase, (loaded, total) => {
       if (cancelled) return;
       const mb = (n: number) => (n / 1e6).toFixed(1);
@@ -90,7 +138,7 @@ export function App({ dataBase }: { dataBase: string }) {
     return () => {
       cancelled = true;
     };
-  }, [dataBase]);
+  }, [dataBase, reloadToken]);
 
   const cat = load.catalogue;
 
@@ -112,7 +160,9 @@ export function App({ dataBase }: { dataBase: string }) {
     if (!cat) return;
     const next = new Set([...favs].filter((k) => cat.byKey.has(k)));
     setFavs(next);
-    saveFavorites(next);
+    const persisted = saveFavorites(next);
+    setSaveFeedback(persisted ? 'Unavailable routes removed from saved.'
+      : 'Browser storage is unavailable. Saved changes last only for this session.');
   };
 
   const index = useMemo(() => (cat ? buildSearchIndex(cat) : { entries: [] }), [cat]);
@@ -133,70 +183,104 @@ export function App({ dataBase }: { dataBase: string }) {
     return { ...out, results: out.results.filter((r) => favs.has(r.key)) };
   }, [cat, filters, favOnly, favs, collection]);
   const selected = (selectedKey && cat?.byKey.get(selectedKey)) || null;
-  const excludedReasons = selected ? exclusionReasons(selected, filters) : [];
+  const excludedReasons = selected
+    ? collection
+      ? collection.keys.includes(selected.key) ? [] : ['It is not in this curated list']
+      : exclusionReasons(selected, filters)
+    : [];
+  if (selected && favOnly && !favs.has(selected.key)) excludedReasons.push('It is not saved, so Favorites only hides it');
   const announced = useDebounced(load.status === 'ready' ? `${plural(result.results.length, 'route')} match` : '', 700);
 
-  useEffect(() => setShown(PAGE_SIZE), [filters]);
+  useEffect(() => setShown(PAGE_SIZE), [filters, favOnly, collectionId]);
 
-  const detailVisible = !!selected && (isMobile ? mobileDetail : true);
-  const padding: Padding = isMobile
-    ? { top: 24, right: 24, bottom: 24, left: 24 }
-    : { top: 48, right: selected ? parseInt(tokens.detailWidth) + 40 : 64, bottom: 48, left: 48 };
+  const detailVisible = !!selected && detailOpen;
+  const railVisible = railOpen && !(narrowWorkspace && detailVisible);
+  const padding: Padding = { top: 72, right: 64, bottom: selected && !detailVisible ? isMobile ? 224 : 168 : 76, left: 24 };
 
   const requestFit = (bbox: FitRequest['bbox'] | null) => {
     if (bbox) setFit({ bbox, nonce: ++nonce.current });
   };
 
+  useEffect(() => {
+    if (cat && selectedKey) requestFit(cat.byKey.get(selectedKey)?.bbox ?? null);
+    // Fit a deep-linked route when its catalogue first becomes available.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cat]);
+
   const openRoute = useCallback(
     (r: RouteView, from: HTMLElement | null) => {
       opener.current = from;
       setSelectedKey(r.key);
-      // At tablet widths the detail panel would cover the map beside the rail.
-      if (isTablet) setRailOpen(false);
+      if (!readRouteLocation().detail) writeRouteLocation(r.key, false);
+      writeRouteLocation(r.key, true, true);
       requestFit(r.bbox);
-      if (isMobile) setMobileDetail(true);
-      requestAnimationFrame(() => detailHeading.current?.focus());
+      setDetailOpen(true);
+      setLegendOpen(false);
+      requestAnimationFrame(() => detailHeading.current?.focus({ preventScroll: true }));
     },
-    [isMobile, isTablet],
+    [],
   );
 
   const onMapSelect = useCallback(
     (key: string) => {
       opener.current = null;
       setSelectedKey(key);
-      if (isTablet) setRailOpen(false);
+      writeRouteLocation(key, false);
+      setDetailOpen(false);
       const r = cat?.byKey.get(key);
       if (r) requestFit(r.bbox);
       const i = result.results.findIndex((x) => x.key === key);
       if (i >= 0) setShown((s) => Math.max(s, i + 1));
       if (isMobile) {
         setSheetOpen(false);
-      } else {
+      } else if (railVisible) {
         setCardFocus({ key, nonce: ++nonce.current });
       }
     },
-    [cat, result.results, isMobile, isTablet],
+    [cat, result.results, isMobile, railVisible],
   );
+  const browseRoute = (route: RouteView, from: HTMLElement) => {
+    if (!isMobile || mapStatus === 'unavailable') {
+      openRoute(route, from);
+      return;
+    }
+    opener.current = from;
+    setSelectedKey(route.key);
+    writeRouteLocation(route.key, false);
+    setDetailOpen(false);
+    setLegendOpen(false);
+    setHoverKey(null);
+    setCursorKm(null);
+    setSheetOpen(false);
+    requestFit(route.bbox);
+    requestAnimationFrame(() => sheetHandle.current?.focus({ preventScroll: true }));
+  };
+  useEffect(() => {
+    if (sheetOpen && sheetBody.current) sheetBody.current.scrollTop = browseScroll.current;
+  }, [sheetOpen]);
 
   const clearSelection = () => {
     setSelectedKey(null);
-    setMobileDetail(false);
+    writeRouteLocation(null, false);
+    setDetailOpen(false);
     setCursorKm(null);
+    setHoverKey(null);
   };
 
   const closeDetail = useCallback(() => {
-    if (isMobile) {
-      setMobileDetail(false);
-    } else {
-      setSelectedKey(null);
+    if (window.history.state?.funroadsDetail && readRouteLocation().detail) {
+      returningKey.current = selectedKey;
+      window.history.back();
+      return;
     }
+    setDetailOpen(false);
+    writeRouteLocation(selectedKey, false);
     setCursorKm(null);
     const el = opener.current;
     requestAnimationFrame(() => {
-      if (el && el.isConnected) el.focus();
-      else if (selectedKey) document.querySelector<HTMLElement>(`[data-route-key="${CSS.escape(selectedKey)}"]`)?.focus();
+      restoreDetailFocus(el, selectedKey);
     });
-  }, [isMobile, selectedKey]);
+  }, [selectedKey]);
 
   const onSearchChosen = (next: Filters) => {
     setFilters(next);
@@ -208,22 +292,26 @@ export function App({ dataBase }: { dataBase: string }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || e.defaultPrevented || aboutOpen) return;
+      if (e.key !== 'Escape' || e.defaultPrevented || filtersOpen || legendOpen || (isMobile && detailVisible)) return;
       const t = e.target as HTMLElement | null;
       if (t?.closest('[role="listbox"], [role="combobox"]')) return;
+      if (document.querySelector('[role="listbox"]') || t?.closest('.maplibregl-popup')) return;
+      if (document.querySelector('[data-baseweb="popover"]')) return;
       if (detailVisible) closeDetail();
+      else if (selected) clearSelection();
+      else if (isMobile && sheetOpen) setSheetOpen(false);
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [detailVisible, closeDetail, aboutOpen]);
+  }, [detailVisible, closeDetail, filtersOpen, legendOpen, isMobile, selected, sheetOpen]);
 
-  // The full-screen mobile detail is modal: keep the page behind it out of tab order.
+  // The inset mobile detail is modal: visible map edges remain background context.
   useEffect(() => {
     const el = shellMain.current;
     if (!el) return;
-    if (isMobile && detailVisible) el.setAttribute('inert', '');
+    if ((isMobile && detailVisible) || filtersOpen) el.setAttribute('inert', '');
     else el.removeAttribute('inert');
-  }, [isMobile, detailVisible]);
+  }, [isMobile, detailVisible, filtersOpen]);
 
   useEffect(() => {
     if (mapStatus === 'unavailable' && isMobile) setSheetOpen(true);
@@ -245,10 +333,12 @@ export function App({ dataBase }: { dataBase: string }) {
       selectedKey={selectedKey}
       shown={shown}
       setShown={setShown}
-      openRoute={openRoute}
+      openRoute={browseRoute}
       setHoverKey={setHoverKey}
       cardFocus={cardFocus}
-      showLegend={isMobile}
+      showSearch
+      onOpenFilters={() => { setLegendOpen(false); openSurfaceLocation('filters'); setFiltersOpen(true); }}
+      onRetry={() => setReloadToken((n) => n + 1)}
       favorites={favs}
       favoriteNames={favNames}
       onRemoveStale={removeStaleFavorites}
@@ -268,51 +358,46 @@ export function App({ dataBase }: { dataBase: string }) {
 
   const detail = selected ? (
     <RouteDetail
+      key={selected.key}
       ref={detailHeading}
       route={selected}
       home={filters.home}
-      allWindows={cat?.windows ?? []}
       allRoutes={cat?.routes ?? EMPTY_POOL}
       generated={selected.catalog === 'linked' ? cat?.meta.linkedGenerated : cat?.meta.routesGenerated}
       excludedReasons={excludedReasons}
-      backLabel={isMobile ? 'Back to results' : 'Close details'}
       favorite={favs.has(selected.key)}
-      offerCompactLink={isMobile || coarsePointer}
-      onBack={closeDetail}
+      onClose={closeDetail}
       onOpen={openRoute}
       onToggleFavorite={onToggleFavorite}
-      onShowOnMap={
-        isMobile && mapStatus !== 'unavailable'
-          ? () => {
-              setMobileDetail(false);
-              setSheetOpen(false);
-              requestFit(selected.bbox);
-            }
-          : undefined
-      }
       onCursorKm={setCursorKm}
     />
   ) : null;
 
   return (
     <div className={css({ height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' })}>
-      <div ref={shellMain} className={css({ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 })}>
+      <div ref={shellMain} className={css({ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, isolation: 'isolate' })}>
         <header
           className={css({
-            height: tokens.topBar,
+            minHeight: isMobile ? '28px' : tokens.topBar,
+            pointerEvents: isMobile ? 'none' : 'auto',
+            position: isMobile ? 'absolute' : 'relative',
+            top: isMobile ? 'calc(8px + env(safe-area-inset-top))' : 'auto',
+            left: isMobile ? '12px' : 'auto',
+            right: isMobile ? '72px' : 'auto',
+            zIndex: 4,
             flex: 'none',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: '8px',
-            padding: `0 ${isMobile ? tokens.space.lg : tokens.space.x3}`,
-            paddingTop: 'env(safe-area-inset-top)',
-            borderBottom: `1px solid ${tokens.surfacePressed}`,
-            backgroundColor: tokens.canvas,
+            padding: isMobile ? '0' : `0 ${tokens.space.x3}`,
+            borderBottom: isMobile ? 'none' : `1px solid ${tokens.surfacePressed}`,
+            borderRadius: isMobile ? tokens.radiusCard : '0',
+            backgroundColor: isMobile ? 'transparent' : tokens.canvas,
           })}
         >
           <div className={css({ display: 'flex', alignItems: 'baseline', gap: '12px', minWidth: 0 })}>
-            <h1 className={css({ fontSize: '20px', lineHeight: '28px', fontWeight: 700, margin: 0, whiteSpace: 'nowrap' })}>FunRoads NL</h1>
+            <h1 className={css({ fontSize: isMobile ? '16px' : '20px', lineHeight: '24px', fontWeight: 700, margin: 0, whiteSpace: 'nowrap' })}>FunRoads NL</h1>
             {!isMobile ? (
               <span className={css({ fontSize: '14px', color: tokens.hairlineMid, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' })}>
                 Legal, enjoyable Dutch roads · pinned data from {formatDate(cat?.meta.routesGenerated)}
@@ -320,22 +405,22 @@ export function App({ dataBase }: { dataBase: string }) {
             ) : null}
           </div>
           <div className={css({ display: 'flex', gap: '8px', flexShrink: 0, whiteSpace: 'nowrap' })}>
-            {isTablet ? (
+            {!isMobile ? (
               <Button
                 kind={BKIND.secondary}
-                shape={SHAPE.pill}
+                shape={SHAPE.default}
                 size={SIZE.compact}
-                aria-expanded={railOpen}
+                aria-expanded={railVisible}
                 aria-controls="discovery-rail"
-                onClick={() => setRailOpen((o) => !o)}
+                onClick={() => {
+                  if (detailVisible && narrowWorkspace) { closeDetail(); setRailOpen(true); }
+                  else setRailOpen((o) => !o);
+                }}
                 overrides={{ BaseButton: { style: { minHeight: '44px' } } }}
               >
-                <span style={{ whiteSpace: 'nowrap' }}>{railOpen ? 'Hide list' : 'Show list'}</span>
+                <span style={{ whiteSpace: 'nowrap' }}>{railVisible ? 'Hide list' : 'Show list'}</span>
               </Button>
             ) : null}
-            <Button kind={BKIND.secondary} shape={SHAPE.pill} size={SIZE.compact} onClick={() => setAboutOpen(true)} overrides={{ BaseButton: { style: { minHeight: '44px' } } }}>
-              <span style={{ whiteSpace: 'nowrap' }}>About the data</span>
-            </Button>
           </div>
         </header>
 
@@ -348,24 +433,26 @@ export function App({ dataBase }: { dataBase: string }) {
             position: 'relative',
           })}
         >
-          {!isMobile && (railOpen || !isTablet) ? (
+          {!isMobile ? (
             <aside
+              hidden={!railVisible}
               id="discovery-rail"
               aria-label="Discover routes"
-              className={css({
-                width: isTablet ? '340px' : tokens.railWidth,
+              className={`fr-scroll ${css({
+                width: narrowWorkspace ? '340px' : tokens.railWidth,
                 flex: 'none',
                 overflowY: 'auto',
                 padding: `${tokens.space.sm} ${tokens.space.x2} ${tokens.space.x2}`,
                 borderRight: `1px solid ${tokens.surfacePressed}`,
                 backgroundColor: tokens.canvas,
-              })}
+              })}`}
             >
               {rail}
             </aside>
           ) : null}
 
-          <div className={css({ flex: 1, minHeight: isMobile ? '120px' : 0, position: 'relative', backgroundColor: tokens.canvasSofter })}>
+          <div onPointerDownCapture={() => { dismissOnly.current = legendOpen || !!document.querySelector('[role="listbox"], [data-baseweb="popover"]'); }}
+            className={css({ flex: 1, minWidth: 0, minHeight: 0, overflow: 'hidden', position: 'relative', backgroundColor: tokens.canvasSofter })}>
             <MapView
               ranked={result.results}
               contextPool={cat?.routes ?? EMPTY_POOL}
@@ -376,94 +463,118 @@ export function App({ dataBase }: { dataBase: string }) {
               reducedMotion={reducedMotion}
               cursor={cursor}
               onSelect={onMapSelect}
+              onBlank={() => {
+                if (legendOpen || dismissOnly.current) {
+                  dismissOnly.current = false;
+                  setLegendOpen(false);
+                }
+                else clearSelection();
+              }}
               onStatus={setMapStatus}
+              onAttribution={setMapAttribution}
+              onInteract={() => { setLegendOpen(false); if (isMobile) setSheetOpen(false); }}
             />
             <MapStatusBanner status={mapStatus} />
-            {!isMobile ? (
-              <div className={css({ position: 'absolute', right: selected ? `calc(${tokens.detailWidth} + 24px)` : '16px', bottom: '40px' })}>
-                <Legend />
-              </div>
+            <div className={css({ position: 'absolute', top: 'calc(8px + env(safe-area-inset-top))', right: '10px', zIndex: 3 })}>
+              <Popover isOpen={legendOpen} onClickOutside={() => setLegendOpen(false)}
+                onClick={() => { if (isMobile) setSheetOpen(false); setLegendOpen((open) => !open); }}
+                onEsc={() => setLegendOpen(false)} placement={PLACEMENT.bottomRight} returnFocus
+                content={
+                  <div className="fr-map-info-panel">
+                    <Legend />
+                    <div className="fr-map-info-sources" ref={(element) => {
+                      if (element && mapAttribution) element.appendChild(mapAttribution);
+                    }} />
+                    <Disclosure title="App and data">
+                      <PwaStatus engaged={!!selected || favs.size > 0} />
+                      <AboutText cat={cat} />
+                    </Disclosure>
+                  </div>
+                }>
+                <Button kind={BKIND.tertiary} shape={SHAPE.circle} size={SIZE.compact}
+                  aria-label="Map information" aria-expanded={legendOpen}
+                  overrides={{ BaseButton: { props: { className: 'fr-map-info-button' }, style: {
+                    minHeight: '44px', minWidth: '44px', backgroundColor: 'transparent', boxShadow: 'none',
+                    ':hover': { backgroundColor: 'transparent' }, ':active': { backgroundColor: 'transparent' },
+                  } } }}><span aria-hidden="true">i</span></Button>
+              </Popover>
+            </div>
+            {!isMobile && selected && !detailVisible ? (
+              <section aria-label="Selected route" data-map-overlay="bottom" className={css({ position: 'absolute', bottom: '60px', left: '16px', right: '72px', maxWidth: '420px', backgroundColor: tokens.canvas, borderRadius: tokens.radiusCard, padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.16)' })}>
+                <KindLabel kind={selected.kind} color={selected.color} />
+                <strong style={{ display: 'block', margin: '6px 0', fontSize: 18 }}>{selected.name}</strong>
+                <RouteStats route={selected} home={filters.home} />
+                {excludedReasons.length ? <Caption>Selected route no longer matches these results.</Caption> : null}
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <Button shape={SHAPE.default} size={SIZE.compact} onClick={(e) => openRoute(selected, e.currentTarget)} overrides={{ BaseButton: { style: { minHeight: '44px' } } }}>Details</Button>
+                  <Button kind={BKIND.secondary} shape={SHAPE.default} size={SIZE.compact} onClick={() => requestFit(selected.bbox)} overrides={{ BaseButton: { style: { minHeight: '44px' } } }}>Fit route</Button>
+                </div>
+              </section>
             ) : null}
-            {!isMobile && selected ? (
-              <section
-                aria-label="Route details"
-                className={css({
-                  position: 'absolute',
-                  top: '12px',
-                  right: '12px',
-                  bottom: '36px',
-                  width: `min(${tokens.detailWidth}, calc(100% - 24px))`,
-                  overflowY: 'auto',
-                  backgroundColor: tokens.canvas,
-                  borderRadius: tokens.radiusCard,
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.16)',
-                  padding: tokens.space.x2,
-                  zIndex: 2,
-                })}
-              >
+            {!isMobile && detailVisible ? (
+              <section aria-label="Route details" key={selectedKey} className="fr-detail-panel" data-map-overlay="right">
                 {detail}
               </section>
             ) : null}
           </div>
-
           {isMobile ? (
             <section
               aria-label="Routes"
+              data-map-overlay="bottom"
               className={css({
                 flex: 'none',
-                height: mapStatus === 'unavailable' ? '100%' : sheetOpen ? '68%' : '132px',
+                position: 'absolute',
+                bottom: 'calc(12px + env(safe-area-inset-bottom))',
+                left: '12px',
+                right: '12px',
+                maxHeight: 'calc(100% - 76px)',
+                height: mapStatus === 'unavailable' || (sheetOpen && shortViewport) ? '100%' : sheetOpen ? 'min(62%, 560px)' : 'auto',
                 display: 'flex',
                 flexDirection: 'column',
                 backgroundColor: tokens.canvas,
                 borderTopLeftRadius: tokens.radiusCard,
                 borderTopRightRadius: tokens.radiusCard,
-                boxShadow: '0 -4px 16px rgba(0,0,0,0.12)',
-                transition: 'height 200ms ease',
-                paddingBottom: 'env(safe-area-inset-bottom)',
+                borderBottomLeftRadius: tokens.radiusCard,
+                borderBottomRightRadius: tokens.radiusCard,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                overflow: 'hidden',
+                zIndex: 2,
               })}
             >
-              <div className={css({ padding: `${tokens.space.md} ${tokens.space.lg}`, display: 'flex', alignItems: 'center', gap: '8px', flex: 'none' })}>
-                <div className={css({ flex: 1, minWidth: 0 })}>
-                  <div className={css({ fontSize: '16px', fontWeight: 700 })}>
-                    {load.status === 'ready' ? plural(result.results.length, 'route') : load.status === 'loading' ? 'Loading routes…' : 'Routes unavailable'}
-                  </div>
-                  <div className={css({ fontSize: '14px', color: tokens.hairlineMid, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' })}>
-                    {selected ? `Selected: ${selected.name}` : filters.scope === 'nearby' ? `Within ${filters.radiusKm} km straight-line of ${filters.home}` : 'All Netherlands'}
-                  </div>
-                </div>
-                {selected ? (
-                  <Button size={SIZE.compact} shape={SHAPE.pill} onClick={(e) => openRoute(selected, e.currentTarget as HTMLElement)} overrides={{ BaseButton: { style: { minHeight: '44px' } } }}>
-                    Details
-                  </Button>
-                ) : null}
-                {selected ? (
-                  <Button
-                    kind={BKIND.secondary}
-                    size={SIZE.compact}
-                    shape={SHAPE.circle}
-                    aria-label="Clear selection and show all routes"
-                    title="Clear selection"
-                    onClick={clearSelection}
-                    overrides={{ BaseButton: { style: { minHeight: '44px', minWidth: '44px' } } }}
-                  >
-                    <span aria-hidden="true">✕</span>
-                  </Button>
-                ) : null}
+              <div className={css({ display: 'flex', flexDirection: 'column', flex: 'none' })}>
                 {mapStatus !== 'unavailable' ? (
-                  <Button
-                    kind={BKIND.secondary}
-                    size={SIZE.compact}
-                    shape={SHAPE.pill}
+                  <button
+                    ref={sheetHandle}
+                    type="button"
+                    className="fr-sheet-handle"
                     aria-expanded={sheetOpen}
                     aria-controls="sheet-body"
-                    onClick={() => setSheetOpen((o) => !o)}
-                    overrides={{ BaseButton: { style: { minHeight: '44px' } } }}
+                    onClick={() => setSheetOpen((open) => !open)}
                   >
-                    {sheetOpen ? 'Show map' : 'Filters & list'}
-                  </Button>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                      <path d={sheetOpen ? 'M6 9l6 6 6-6' : 'M9 6h11M9 12h11M9 18h11'} />
+                      {!sheetOpen ? <path d="M4 6h1M4 12h1M4 18h1" strokeWidth="3" strokeLinecap="round" /> : null}
+                    </svg>
+                    <span>{sheetOpen ? 'Close results' : selected ? 'Back to results' : 'Browse routes'}</span>
+                  </button>
+                ) : null}
+                {selected && !sheetOpen ? (
+                  <div style={{ display: 'grid', gap: 12, padding: '8px 16px 16px' }}>
+                    <div style={{ minWidth: 0 }}>
+                      <KindLabel kind={selected.kind} color={selected.color} />
+                      <strong style={{ display: 'block', fontSize: 16, lineHeight: '24px', overflowWrap: 'anywhere' }}>{selected.name}</strong>
+                      <RouteStats route={selected} home={filters.home} />
+                      {excludedReasons.length ? <Caption>No longer matches these results.</Caption> : null}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <Button size={SIZE.compact} shape={SHAPE.default} onClick={(e) => openRoute(selected, e.currentTarget)} overrides={{ BaseButton: { style: { minHeight: '44px', flex: 1 } } }}>Details</Button>
+                    </div>
+                  </div>
                 ) : null}
               </div>
-              <div id="sheet-body" className={css({ flex: 1, overflowY: 'auto', padding: `0 ${tokens.space.lg} ${tokens.space.lg}` })}>
+              <div id="sheet-body" ref={sheetBody} hidden={!sheetOpen && mapStatus !== 'unavailable'}
+                onScroll={(event) => { if (sheetOpen) browseScroll.current = event.currentTarget.scrollTop; }}
+                className={css({ flex: 1, minHeight: 0, overflowY: 'auto', padding: `0 ${tokens.space.lg} ${tokens.space.lg}` })}>
                 {rail}
               </div>
             </section>
@@ -471,41 +582,50 @@ export function App({ dataBase }: { dataBase: string }) {
         </main>
       </div>
 
-      {isMobile && detailVisible ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="detail-heading"
-          className={css({
-            position: 'fixed',
-            inset: 0,
-            zIndex: 20,
-            backgroundColor: tokens.canvas,
-            overflowY: 'auto',
-            padding: `calc(${tokens.space.lg} + env(safe-area-inset-top)) ${tokens.space.lg} calc(${tokens.space.lg} + env(safe-area-inset-bottom))`,
-          })}
-        >
-          {detail}
-        </div>
-      ) : null}
+      <Modal isOpen={isMobile && detailVisible} onClose={closeDetail} animate={false}
+        overrides={{ Close: { style: { display: 'none' } },
+          Dialog: { props: { 'aria-labelledby': 'detail-heading' }, style: {
+            margin: 'calc(12px + env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom))',
+            width: 'calc(100% - 24px)', maxWidth: '560px',
+            height: 'calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom))',
+            overflow: 'hidden', borderRadius: tokens.radiusCard, padding: '0', transform: 'none', opacity: 1,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.12)',
+          } },
+          Root: { style: { overflow: 'hidden' } },
+          DialogContainer: { style: { padding: '0', backgroundColor: 'rgba(0,0,0,0.16)', opacity: 1 } },
+        }}>
+        {isMobile && detailVisible ? detail : null}
+      </Modal>
 
       <div className="fr-visually-hidden" aria-live="polite" aria-atomic="true">
         {announced}
       </div>
+      {saveFeedback ? <div role="status" className="fr-save-feedback">{saveFeedback}</div> : null}
 
-      <Modal isOpen={aboutOpen} onClose={() => setAboutOpen(false)} role={ROLE.dialog} autoFocus closeable>
-        <ModalHeader>About the data</ModalHeader>
-        <ModalBody>
-          <AboutText cat={cat} />
+      <Modal isOpen={filtersOpen} onClose={() => { setFiltersOpen(false); closeSurfaceLocation(); }} name="Route filters" animate={!reducedMotion}
+        overrides={{ Dialog: { props: { 'aria-labelledby': 'filters-heading' }, style: { maxHeight: 'calc(100dvh - 32px)', display: 'flex', flexDirection: 'column', margin: '16px' } } }}>
+        <ModalHeader id="filters-heading" $style={{ margin: '20px 20px 0', flex: 'none' }}>Route filters</ModalHeader>
+        <ModalBody className="fr-scroll" $style={{ margin: '8px 20px 0', overflowY: 'auto', minHeight: 0 }}>
+          {collectionId ? <Caption>Favorites applies to this list. Other filters apply when you return to all routes.</Caption> : null}
+          {cat ? <Controls filters={filters} onChange={setFilters} onSearchChosen={onSearchChosen} index={index}
+            windows={cat.windows} typeCounts={result.typeCounts} hasLinked={cat.counts['linked-open'] + cat.counts['linked-loop'] > 0} areaCount={cat.areas.length}
+            favoritesOnly={favOnly} onFavoritesOnly={setFavOnly} favoriteCount={[...favs].filter((key) => cat.byKey.has(key)).length} /> : null}
         </ModalBody>
-        <ModalFooter>
-          <ModalButton shape={SHAPE.pill} onClick={() => setAboutOpen(false)}>
-            Close
-          </ModalButton>
+        <ModalFooter $style={{ padding: '12px 20px 16px', flex: 'none' }}>
+          <ModalButton kind={BKIND.secondary} shape={SHAPE.default} onClick={() => { setFilters(resetFilters(filters)); setFavOnly(false); }}>Reset filters</ModalButton>
+          <ModalButton shape={SHAPE.default} onClick={() => { setFiltersOpen(false); closeSurfaceLocation(); }}>Done</ModalButton>
         </ModalFooter>
       </Modal>
     </div>
   );
+}
+
+function restoreDetailFocus(opener: HTMLElement | null, key: string | null) {
+  const card = key ? document.querySelector<HTMLElement>(`[data-route-key="${CSS.escape(key)}"]`) : null;
+  const target = [opener, card, document.querySelector<HTMLElement>('.fr-sheet-handle'),
+    document.querySelector<HTMLElement>('[aria-controls="discovery-rail"]')]
+    .find((element) => element?.isConnected && !element.closest('[hidden], [inert]'));
+  target?.focus({ preventScroll: true });
 }
 
 function MapStatusBanner({ status }: { status: MapStatus }) {
@@ -527,10 +647,11 @@ function MapStatusBanner({ status }: { status: MapStatus }) {
 function Legend() {
   return (
     <div
-      style={{ background: '#fff', borderRadius: 16, padding: '10px 14px', boxShadow: '0 2px 8px rgba(0,0,0,0.16)', fontSize: 12, lineHeight: '20px', maxWidth: 260 }}
+      style={{ fontSize: 12, lineHeight: '20px' }}
       aria-label="Map legend"
       role="group"
     >
+      <strong style={{ display: 'block', marginBottom: 8 }}>Map legend</strong>
       {(['circuit', 'linked-loop', 'linked-open', 'sprint'] as const).map((k) => (
         <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <KindGlyph kind={k} />
@@ -560,7 +681,9 @@ interface RailProps {
   openRoute: (r: RouteView, el: HTMLElement) => void;
   setHoverKey: (k: string | null) => void;
   cardFocus: { key: string; nonce: number } | null;
-  showLegend: boolean;
+  showSearch: boolean;
+  onOpenFilters: () => void;
+  onRetry: () => void;
   favorites: ReadonlySet<string>;
   favoriteNames: Record<string, string>;
   onRemoveStale: () => void;
@@ -590,6 +713,7 @@ function RailContent(p: RailProps) {
         <Notice tone="warning">
           <strong>Route data could not be loaded.</strong> {load.problems.join(' ')}
         </Notice>
+        <Button shape={SHAPE.default} onClick={p.onRetry} overrides={{ BaseButton: { style: { minHeight: '44px', marginTop: '12px' } } }}>Retry route data</Button>
       </div>
     );
   }
@@ -608,19 +732,25 @@ function RailContent(p: RailProps) {
         <div style={{ marginTop: 12 }}>
           <Button
             kind={BKIND.secondary}
-            shape={SHAPE.pill}
+            shape={SHAPE.default}
             size={SIZE.compact}
             onClick={p.onCloseCollection}
             overrides={{ BaseButton: { style: { minHeight: '44px' } } }}
           >
             <span aria-hidden="true">←&nbsp;</span>All routes
           </Button>
+          <Button kind={BKIND.secondary} shape={SHAPE.default} size={SIZE.compact} onClick={p.onOpenFilters}
+            overrides={{ BaseButton: { style: { minHeight: '44px', marginLeft: '8px' } } }}>Filters</Button>
           <SectionTitle $style={{ marginTop: '12px' }}>{p.collection.title}</SectionTitle>
-          <Caption>{p.collection.description} A curated ranking; the filters below are paused while this list is open.</Caption>
+          <Caption>{p.collection.description} Curated ranking; only Favorites applies. All routes restores your other filters.</Caption>
+          {p.favOnly ? <Button kind={BKIND.secondary} shape={SHAPE.default} size={SIZE.compact} aria-label="Remove filter: Favorites only"
+            onClick={() => p.setFavOnly(false)} overrides={{ BaseButton: { style: { minHeight: '44px', marginTop: '8px' } } }}>
+            <StatIcon name="favorite" />Favorites only ×
+          </Button> : null}
         </div>
       ) : (
         <>
-          <Controls
+          <DiscoveryControls
             filters={filters}
             onChange={p.setFilters}
             onSearchChosen={p.onSearchChosen}
@@ -629,57 +759,14 @@ function RailContent(p: RailProps) {
             typeCounts={result.typeCounts}
             hasLinked={hasLinked}
             areaCount={cat.areas.length}
+            onOpenFilters={p.onOpenFilters}
+            favoritesOnly={p.favOnly}
+            onFavoritesOnly={p.setFavOnly}
+            showSearch={p.showSearch}
           />
-          {p.collections.length ? (
-            <div style={{ marginTop: 20 }}>
-              <SectionTitle>Curated lists</SectionTitle>
-              <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 8 }}>
-                {p.collections.map((c) => (
-                  <li key={c.id}>
-                    <button
-                      type="button"
-                      onClick={() => p.onOpenCollection(c.id)}
-                      style={{
-                        display: 'flex',
-                        width: '100%',
-                        textAlign: 'left',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: 8,
-                        font: 'inherit',
-                        color: tokens.ink,
-                        backgroundColor: tokens.canvasSoft,
-                        border: 'none',
-                        borderRadius: tokens.radiusCard,
-                        padding: `${tokens.space.md} ${tokens.space.lg}`,
-                        cursor: 'pointer',
-                        minHeight: '48px',
-                      }}
-                    >
-                      <span>
-                        <span style={{ display: 'block', fontSize: 16, lineHeight: '24px', fontWeight: 500 }}>{c.title}</span>
-                        <span style={{ display: 'block', fontSize: 12, lineHeight: '20px', color: tokens.hairlineMid }}>
-                          {plural(c.keys.length, 'route')}
-                        </span>
-                      </span>
-                      <span aria-hidden="true" style={{ color: tokens.hairlineMid, fontSize: 18 }}>›</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
         </>
       )}
-      <div style={{ marginTop: 16 }}>
-        <Checkbox
-          checked={p.favOnly}
-          onChange={(e) => p.setFavOnly(e.currentTarget.checked)}
-          checkmarkType={CHECK_STYLE.toggle}
-          overrides={{ Root: { style: { minHeight: '44px', alignItems: 'center' } } }}
-        >
-          Favorites only ({liveFavorites} saved)
-        </Checkbox>
+      <div style={{ marginTop: stale.length ? 16 : 0 }}>
         {stale.length ? (
           <div style={{ marginTop: 8 }}>
             <Notice tone="info">
@@ -688,7 +775,7 @@ function RailContent(p: RailProps) {
               <div style={{ marginTop: 8 }}>
                 <Button
                   kind={BKIND.secondary}
-                  shape={SHAPE.pill}
+                  shape={SHAPE.default}
                   size={SIZE.compact}
                   onClick={p.onRemoveStale}
                   overrides={{ BaseButton: { style: { minHeight: '44px' } } }}
@@ -700,15 +787,10 @@ function RailContent(p: RailProps) {
           </div>
         ) : null}
       </div>
-      <SectionTitle $style={{ fontSize: '20px', lineHeight: '28px', marginTop: '8px' }}>
+      <SectionTitle $style={{ fontSize: '20px', lineHeight: '28px', marginTop: '20px' }}>
         {p.collection ? `${p.collection.title} · ${plural(result.results.length, 'route')}` : plural(result.results.length, 'route')}
       </SectionTitle>
-      {!p.collection && result.hiddenNoDistance ? (
-        <Caption>
-          {plural(result.hiddenNoDistance, 'circuit')} not shown: the data has no straight-line distance for national circuits, so
-          they cannot join a nearby view. Switch to All Netherlands to see them.
-        </Caption>
-      ) : null}
+      {!p.collection ? <RouteTypeChoices filters={filters} onChange={p.setFilters} hasLinked={hasLinked} /> : null}
       {!p.collection && result.hiddenNoDrive ? <Caption>{plural(result.hiddenNoDrive, 'route')} hidden because drive time is unknown.</Caption> : null}
       <div style={{ marginTop: 12 }}>
         {result.results.length ? (
@@ -741,7 +823,7 @@ function RailContent(p: RailProps) {
             </p>
             {p.collection ? (
               <Button
-                shape={SHAPE.pill}
+                shape={SHAPE.default}
                 onClick={() => {
                   p.setFavOnly(false);
                   p.onCloseCollection();
@@ -750,12 +832,12 @@ function RailContent(p: RailProps) {
                 Show all routes
               </Button>
             ) : p.favOnly && !liveFavorites ? (
-              <Button shape={SHAPE.pill} onClick={() => p.setFavOnly(false)}>
+              <Button shape={SHAPE.default} onClick={() => p.setFavOnly(false)}>
                 Show all routes
               </Button>
             ) : (
               <Button
-                shape={SHAPE.pill}
+                shape={SHAPE.default}
                 onClick={() => {
                   p.setFavOnly(false);
                   p.setFilters(resetFilters(filters));
@@ -767,10 +849,18 @@ function RailContent(p: RailProps) {
           </div>
         )}
       </div>
-      {p.showLegend ? (
-        <div style={{ marginTop: 16 }}>
-          <Legend />
-        </div>
+      {!p.collection && p.collections.length ? (
+        <Disclosure title="Curated lists">
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 8 }}>
+            {p.collections.map((c) => <li key={c.id}>
+              <Button kind={BKIND.secondary} shape={SHAPE.default} onClick={() => p.onOpenCollection(c.id)}
+                overrides={{ BaseButton: { style: { minHeight: '48px', width: '100%', textAlign: 'left', justifyContent: 'space-between' } } }}>
+                <span>{c.title}<span style={{ display: 'block', fontSize: 12 }}>{plural(c.keys.length, 'route')}</span></span>
+                <span aria-hidden="true">›</span>
+              </Button>
+            </li>)}
+          </ul>
+        </Disclosure>
       ) : null}
       <footer style={{ marginTop: 24, fontSize: 12, lineHeight: '20px', color: tokens.hairlineMid }}>
         <p style={{ margin: '0 0 8px' }}>{SAFETY_NOTE}</p>

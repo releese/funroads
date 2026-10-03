@@ -15,6 +15,7 @@ export const tokens = {
   surfacePressed: '#e2e2e2',
   link: '#0000ee',
   radiusCard: '16px',
+  radiusButton: '8px',
   radiusPill: '999px',
   space: { xxs: '4px', xs: '6px', sm: '8px', md: '12px', lg: '16px', xl: '20px', x2: '24px', x3: '32px' },
   railWidth: '392px',
@@ -42,7 +43,7 @@ export const theme = createLightTheme({
     // DESIGN.md token: text inputs are square.
     inputBorderRadius: '0px',
     inputBorderRadiusMini: '0px',
-    buttonBorderRadius: tokens.radiusPill,
+    buttonBorderRadius: tokens.radiusButton,
     popoverBorderRadius: tokens.radiusCard,
     tagBorderRadius: tokens.radiusPill,
   },
@@ -54,4 +55,6 @@ export const MQ = {
   desktop: '(min-width: 1120px)',
   reducedMotion: '(prefers-reduced-motion: reduce)',
   coarsePointer: '(pointer: coarse)',
+  narrowWorkspace: '(max-width: 1319.98px)',
+  shortViewport: '(max-height: 500px)',
 };

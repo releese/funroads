@@ -4,8 +4,7 @@ import { Button, KIND as BKIND, SHAPE } from 'baseui/button';
 import type { Home } from '../data/raw';
 import type { RouteView } from '../data/model';
 import { KIND_SHAPE } from '../data/model';
-import { km } from '../data/format';
-import { KindLabel } from './ui';
+import { KindLabel, RouteStats, StatIcon } from './ui';
 import { tokens } from '../theme';
 
 export const PAGE_SIZE = 40;
@@ -39,7 +38,6 @@ export const ResultCard = forwardRef<HTMLButtonElement, CardProps>(function Resu
   { route: r, home, selected, favorite, onOpen, onHover, onToggleFavorite },
   ref,
 ) {
-  const dist = r.distanceKm?.[home];
   return (
     <span style={{ position: 'relative', display: 'block' }}>
       <CardButton
@@ -54,64 +52,54 @@ export const ResultCard = forwardRef<HTMLButtonElement, CardProps>(function Resu
         onFocus={() => onHover(r.key)}
         onBlur={() => onHover(null)}
       >
-        <span style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', paddingRight: 40 }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <span
-              aria-hidden="true"
-              style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: r.color, flex: 'none', border: `1px solid ${tokens.hairlineMid}` }}
-            />
-            <KindLabel kind={r.kind} />
-          </span>
-          <span style={{ fontSize: 14, fontWeight: 500 }} aria-label={`Fun score ${Math.round(r.funScore)} out of 100`}>
+        <span style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', minHeight: 32, paddingRight: 56 }}>
+          <KindLabel kind={r.kind} color={r.color} />
+          <span className="fr-route-stat" style={{ fontSize: 14, fontWeight: 500 }} aria-label={`${r.funScoreBasis === 'route-total' ? 'Fun score' : 'Road fun average'} ${Math.round(r.funScore)} out of 100`}>
+            <StatIcon name="score" />
             {Math.round(r.funScore)}
             <span style={{ color: tokens.hairlineMid, fontWeight: 400 }}>/100</span>
           </span>
         </span>
-        <span style={{ display: 'block', fontSize: 18, lineHeight: '24px', fontWeight: 700, margin: '6px 0 2px' }}>{r.name}</span>
-        <span style={{ display: 'block', fontSize: 14, lineHeight: '20px', color: tokens.hairlineMid }}>
-          {km(r.km)} · {r.driveMin != null ? `~${r.driveMin} min drive` : 'drive time unknown'} ·{' '}
-          {dist != null ? `${dist} km straight-line from ${home}` : r.circuit ? r.circuit.areaName : 'distance unknown'}
-        </span>
-        <span style={{ display: 'block', fontSize: 12, lineHeight: '20px', color: tokens.hairlineMid }}>
-          {KIND_SHAPE[r.kind]}
-          {r.traits.length ? ` · ${r.traits.join(', ')}` : ''}
-        </span>
+        {selected ? <span style={{ display: 'block', marginTop: 4, fontSize: 12, fontWeight: 500 }}>Selected</span> : null}
+        <span style={{ display: 'block', fontSize: 16, lineHeight: '22px', fontWeight: 500, margin: '6px 0 8px', overflowWrap: 'anywhere', textWrap: 'pretty' }}>{r.name}</span>
+        <RouteStats route={r} home={home} />
+        {r.kind === 'sprint' || r.kind === 'linked-open' || r.traits.length ? (
+          <span style={{ display: 'block', marginTop: 6, fontSize: 12, lineHeight: '18px', color: tokens.hairlineMid }} title={KIND_SHAPE[r.kind]}>
+            {r.kind === 'sprint' ? 'Legal turnaround required' : r.kind === 'linked-open' ? 'Ends elsewhere' : ''}
+            {r.traits.length ? `${r.kind === 'sprint' || r.kind === 'linked-open' ? ' · ' : ''}${r.traits.join(', ')}` : ''}
+          </span>
+        ) : null}
         {r.anchorRoads.length > 1 && !r.name.startsWith(r.anchorRoads[0]) ? (
           <span style={{ display: 'block', fontSize: 12, lineHeight: '20px', color: tokens.hairlineMid }}>
             {r.anchorRoads.join(' → ')}
           </span>
         ) : null}
-        {r.sharesWith.length ? (
-          <span style={{ display: 'block', fontSize: 12, lineHeight: '20px', color: tokens.hairlineMid, marginTop: 2 }}>
-            <span aria-hidden="true">‖ </span>
-            Runs along {r.sharesWith[0].name} ({Math.round(r.sharesWith[0].share * 100)}% of its line)
-          </span>
-        ) : null}
       </CardButton>
       <button
         type="button"
+        className="fr-favorite-button"
         aria-pressed={favorite}
         aria-label={favorite ? `Remove ${r.name} from favorites` : `Save ${r.name} to favorites`}
         title={favorite ? 'Remove from favorites' : 'Save to favorites'}
         onClick={() => onToggleFavorite(r.key)}
         style={{
           position: 'absolute',
-          top: 12,
-          right: 12,
+          top: 8,
+          right: 8,
           width: 44,
           height: 44,
           display: 'grid',
           placeItems: 'center',
           border: 'none',
           borderRadius: 999,
-          background: favorite ? tokens.surfacePressed : tokens.canvasSoft,
+          background: 'transparent',
           cursor: 'pointer',
-          fontSize: 20,
+          fontSize: 16,
           lineHeight: 1,
           color: favorite ? tokens.ink : tokens.hairlineMid,
         }}
       >
-        <span aria-hidden="true">{favorite ? '★' : '☆'}</span>
+        <span aria-hidden="true"><StatIcon name="favorite" size={16} filled={favorite} /></span>
       </button>
     </span>
   );
@@ -167,7 +155,7 @@ export function ResultsList({ results, home, selectedKey, shown, favorites, onSh
       </ul>
       {shown < results.length ? (
         <div style={{ marginTop: 12 }}>
-          <Button kind={BKIND.secondary} shape={SHAPE.pill} onClick={onShowMore} overrides={{ BaseButton: { style: { width: '100%', minHeight: '48px' } } }}>
+          <Button kind={BKIND.secondary} shape={SHAPE.default} onClick={onShowMore} overrides={{ BaseButton: { style: { width: '100%', minHeight: '48px' } } }}>
             Show {Math.min(PAGE_SIZE, results.length - shown)} more of {(results.length - shown).toLocaleString('en-GB')} remaining
           </Button>
         </div>

@@ -39,12 +39,14 @@ export function loadFavorites(storage: Pick<Storage, 'getItem'> | null = safeSto
   }
 }
 
-export function saveFavorites(favs: ReadonlySet<string>, storage: Pick<Storage, 'setItem'> | null = safeStorage()): void {
-  if (!storage) return;
+export function saveFavorites(favs: ReadonlySet<string>, storage: Pick<Storage, 'setItem'> | null = safeStorage()): boolean {
+  if (!storage) return false;
   try {
     storage.setItem(KEY, JSON.stringify([...favs].sort()));
+    return true;
   } catch {
     // Quota or privacy mode: favorites stay in memory for this session.
+    return false;
   }
 }
 

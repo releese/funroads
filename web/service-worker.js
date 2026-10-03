@@ -32,6 +32,22 @@ self.addEventListener('activate', (event) => {
   })());
 });
 
+// Readiness is verified against the complete version, not navigator.onLine.
+self.addEventListener('message', (event) => {
+  if (event.data?.type !== 'OFFLINE_STATUS' || !event.ports[0]) return;
+  event.waitUntil((async () => {
+    let ready = false;
+    try {
+      if ((await caches.keys()).includes(CACHE)) {
+        const cache = await caches.open(CACHE);
+        const responses = await Promise.all([...URLS].map((url) => cache.match(url)));
+        ready = responses.every((response) => response?.ok);
+      }
+    } catch { /* Storage can be disabled or evicted. */ }
+    event.ports[0].postMessage({ type: 'OFFLINE_STATUS', ready, version: VERSION });
+  })());
+});
+
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   const url = new URL(request.url);

@@ -1,12 +1,14 @@
 import { memo, useEffect, useRef } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import * as maplibregl from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import type { GeoJSONSource, Map as MLMap, StyleSpecification } from 'maplibre-gl';
 import type * as GeoJSON from 'geojson';
 import type { LonLat } from '../data/raw';
-import { KIND_LABEL, stopPin, type Kind, type RouteView } from '../data/model';
+import { stopPin, type Kind, type RouteView } from '../data/model';
 import { DASH, visibleLines, type BBox } from './geo';
 import { useLatest } from '../hooks';
+import { KindLabel, RouteStats } from '../components/ui';
 
 maplibregl.setWorkerUrl(workerUrl);
 
@@ -35,7 +37,10 @@ interface Props {
   reducedMotion: boolean;
   cursor: LonLat | null;
   onSelect: (key: string) => void;
+  onBlank: () => void;
   onStatus: (s: MapStatus) => void;
+  onAttribution: (element: HTMLElement) => void;
+  onInteract: () => void;
 }
 
 // OpenFreeMap: free, keyless vector tiles built from OpenStreetMap.
@@ -75,7 +80,7 @@ function marker(cls: string, text: string, at: LonLat, title?: string): maplibre
 const CHOOSER_MAX = 6;
 
 /** A click that hits several routes asks which one, instead of picking whichever rendered first. */
-function chooserContent(routes: RouteView[], more: number, onPick: (key: string) => void, onClose: () => void): HTMLElement {
+export function chooserContent(routes: RouteView[], more: number, onPick: (key: string) => void, onClose: () => void): HTMLElement {
   const el = document.createElement('div');
   el.className = 'fr-chooser';
   el.setAttribute('role', 'group');
@@ -89,10 +94,11 @@ function chooserContent(routes: RouteView[], more: number, onPick: (key: string)
     b.type = 'button';
     b.className = 'fr-chooser__item';
     const name = document.createElement('span');
+    name.className = 'fr-chooser__name';
     name.textContent = r.name;
     const kind = document.createElement('span');
     kind.className = 'fr-chooser__kind';
-    kind.textContent = KIND_LABEL[r.kind];
+    kind.innerHTML = renderToStaticMarkup(<><KindLabel kind={r.kind} color={r.color} /><RouteStats route={r} /></>);
     b.append(name, kind);
     b.addEventListener('click', () => onPick(r.key));
     el.append(b);
@@ -106,21 +112,30 @@ function chooserContent(routes: RouteView[], more: number, onPick: (key: string)
   el.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       e.preventDefault();
+      e.stopPropagation();
       onClose();
     }
   });
   return el;
 }
 
-function safePadding(map: MLMap, p: Padding): Padding {
-  const { clientWidth: w, clientHeight: h } = map.getContainer();
+export function fitPadding(container: HTMLElement, requested: Padding): Padding {
+  const p = { ...requested };
+  const bounds = container.getBoundingClientRect();
+  container.closest('main')?.querySelectorAll<HTMLElement>('[data-map-overlay]').forEach((overlay) => {
+    const rect = overlay.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    if (overlay.dataset.mapOverlay === 'right') p.right = Math.max(p.right, bounds.right - rect.left + 12);
+    else p.bottom = Math.max(76, bounds.bottom - rect.top + 12);
+  });
+  const { clientWidth: w, clientHeight: h } = container;
   const fitX = p.left + p.right < w - 80;
   const fitY = p.top + p.bottom < h - 80;
   return {
     left: fitX ? p.left : 24,
-    right: fitX ? p.right : 24,
+    right: fitX ? p.right : Math.max(24, Math.min(p.right, w - 104)),
     top: fitY ? p.top : 24,
-    bottom: fitY ? p.bottom : 24,
+    bottom: fitY ? p.bottom : Math.max(24, Math.min(p.bottom, h - 104)),
   };
 }
 
@@ -213,15 +228,24 @@ function MapViewImpl(props: Props) {
         dragRotate: false,
         pitchWithRotate: false,
         touchPitch: false,
+        clickTolerance: 8,
       });
     } catch {
       latest.current.onStatus('unavailable');
       return;
     }
     mapRef.current = map;
+    const updatePinDensity = () => { el.dataset.detailPins = map.getZoom() >= 12 ? 'true' : 'false'; };
+    updatePinDensity();
+    map.on('zoomend', updatePinDensity);
     map.touchZoomRotate.disableRotation();
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
-    map.addControl(new maplibregl.AttributionControl({ compact: window.innerWidth < 600, customAttribution: ROUTE_ATTRIBUTION }), 'bottom-left');
+    map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: ROUTE_ATTRIBUTION }), 'bottom-left');
+    const attribution = el.querySelector<HTMLDetailsElement>('.maplibregl-ctrl-attrib')!;
+    // Reuse MapLibre's live attribution element in the shared information popover.
+    attribution.hidden = true;
+    latest.current.onAttribution(attribution.querySelector<HTMLElement>('.maplibregl-ctrl-attrib-inner')!);
+    map.on('dragstart', () => latest.current.onInteract());
 
     let usingFallback = false;
     let styleReady = false;
@@ -243,8 +267,6 @@ function MapViewImpl(props: Props) {
 
     map.on('style.load', () => {
       styleReady = true;
-      // MapLibre opens compact attribution on load; on phones keep it behind the info button.
-      container.current?.querySelector('.maplibregl-compact-show')?.classList.remove('maplibregl-compact-show');
       window.clearTimeout(styleTimer);
       const empty = fc([]);
       for (const id of OUR_SOURCES) if (!map.getSource(id)) map.addSource(id, { type: 'geojson', data: empty });
@@ -317,10 +339,16 @@ function MapViewImpl(props: Props) {
       if (!usingFallback) latest.current.onStatus('ready');
     });
 
-    const clickable = [...KINDS.map((k) => `fr-lines-${k}`), 'fr-points'];
+    const clickable = [...KINDS.map((k) => `fr-lines-${k}`), 'fr-points', 'fr-selected-line'];
     map.on('click', (e) => {
       if (!map.getLayer('fr-points')) return;
-      const pad = 6;
+      latest.current.onInteract();
+      // A click dismisses one layer. MapLibre suppresses clicks after a drag.
+      if (chooser.current?.isOpen()) {
+        closeChooser();
+        return;
+      }
+      const pad = window.matchMedia('(pointer: coarse), (max-width: 767.98px)').matches ? 22 : 10;
       const hits = map.queryRenderedFeatures(
         [
           [e.point.x - pad, e.point.y - pad],
@@ -330,6 +358,8 @@ function MapViewImpl(props: Props) {
       );
       closeChooser();
       const keys = [...new Set(hits.map((h) => h.properties?.key).filter((k): k is string => typeof k === 'string'))];
+      if (!keys.length) latest.current.onBlank();
+      if (keys.length === 1 && keys[0] === latest.current.selected?.key) return;
       if (keys.length === 1) latest.current.onSelect(keys[0]);
       if (keys.length < 2) return;
       const routes = keys
@@ -344,10 +374,11 @@ function MapViewImpl(props: Props) {
         closeChooser();
         map.getCanvas().focus();
       };
-      chooser.current = new maplibregl.Popup({ closeButton: true, closeOnClick: false, maxWidth: '300px', focusAfterOpen: true })
+      chooser.current = new maplibregl.Popup({ className: 'fr-route-popup', closeButton: true, closeOnClick: false, maxWidth: 'min(340px, calc(100% - 24px))', focusAfterOpen: true })
         .setLngLat(e.lngLat)
         .setDOMContent(chooserContent(shownRoutes, routes.length - shownRoutes.length, pick, close))
         .addTo(map);
+      chooser.current.on('close', () => { chooser.current = null; });
     });
     map.on('mousemove', (e) => {
       if (!map.getLayer('fr-points')) return;
@@ -367,7 +398,6 @@ function MapViewImpl(props: Props) {
     // The map mounts once; later props flow through refs and imperative updates.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
   useEffect(() => {
     refreshPoints();
     refreshLines();
@@ -396,7 +426,7 @@ function MapViewImpl(props: Props) {
         [w, s],
         [e, n],
       ],
-      { padding: safePadding(map, latest.current.padding), duration: latest.current.reducedMotion ? 0 : 700, maxZoom: 14 },
+      { padding: fitPadding(map.getContainer(), latest.current.padding), duration: latest.current.reducedMotion ? 0 : 700, maxZoom: 14 },
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.fit?.nonce]);

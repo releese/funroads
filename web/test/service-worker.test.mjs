@@ -42,7 +42,17 @@ function worker(fail = false) {
     handlers.fetch({ request: { url, mode, method }, respondWith: (promise) => { result = promise; } });
     return result;
   };
-  return { stores, requests, lifecycle, request };
+  const offlineStatus = () => {
+    let result;
+    let response;
+    handlers.message({
+      data: { type: 'OFFLINE_STATUS' },
+      ports: [{ postMessage: (value) => { response = value; } }],
+      waitUntil: (promise) => { result = promise; },
+    });
+    return result.then(() => response);
+  };
+  return { stores, requests, lifecycle, request, offlineStatus };
 }
 
 test('installs a complete integrity-checked version without activating over an open app', async () => {
@@ -75,4 +85,13 @@ test('serves project-path navigations and catalogues offline, not external tiles
   assert.equal(w.request('https://tiles.openfreemap.org/style'), undefined);
   assert.equal(w.request('https://example.org/other/', 'navigate'), undefined);
   assert.equal(w.request(`${scope}data/routes.json`, 'cors', 'POST'), undefined);
+});
+
+test('reports offline readiness only while every versioned entry exists', async () => {
+  const w = worker();
+  assert.deepEqual(JSON.parse(JSON.stringify(await w.offlineStatus())), { type: 'OFFLINE_STATUS', ready: false, version: 'new' });
+  await w.lifecycle('install');
+  assert.equal((await w.offlineStatus()).ready, true);
+  w.stores.get(`${prefix}new`).delete(`${scope}data/linked.json`);
+  assert.equal((await w.offlineStatus()).ready, false);
 });

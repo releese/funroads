@@ -3,32 +3,24 @@ import { Button, KIND as BKIND, SHAPE, SIZE } from 'baseui/button';
 import type { Home, LinkedProfile } from '../data/raw';
 import { DIMENSIONS } from '../data/raw';
 import type { RouteView } from '../data/model';
-import { COMPACT_WAYPOINTS, KIND_SHAPE, similarRoutes, stopPin } from '../data/model';
-import { formatDate, formatWindow, km, pct } from '../data/format';
-import { KindLabel, Meter, Notice, SAFETY_NOTE, SectionTitle, SoftCard } from './ui';
+import { KIND_SHAPE, similarRoutes, stopPin } from '../data/model';
+import { formatDate, km, pct } from '../data/format';
+import { Disclosure, KindLabel, Meter, Notice, RouteStats, SectionTitle, StatIcon } from './ui';
 import { ProfileChart, limitMix } from './ProfileChart';
 import { tokens } from '../theme';
 
 interface Props {
   route: RouteView;
   home: Home;
-  allWindows: string[];
   /** All loaded routes, for the similar-routes rail. */
   allRoutes: RouteView[];
   /** Snapshot date of the catalogue this route came from. */
   generated?: string;
   excludedReasons: string[];
-  backLabel: string;
   favorite: boolean;
-  /**
-   * Phones: Google documents only COMPACT_WAYPOINTS waypoints for mobile
-   * browsers, but the Maps app may take the full link, so offer both.
-   */
-  offerCompactLink: boolean;
-  onBack: () => void;
+  onClose: () => void;
   onOpen: (r: RouteView, el: HTMLElement | null) => void;
   onToggleFavorite: (key: string) => void;
-  onShowOnMap?: () => void;
   onCursorKm: (km: number | null) => void;
 }
 
@@ -57,23 +49,21 @@ export function groupStops<T extends { note: string }>(stops: T[]): [string, num
   return [...m.entries()].map(([note, [n, first]]) => [note, n, first]);
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+function Row({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, padding: '8px 0', borderBottom: `1px solid ${tokens.surfacePressed}`, fontSize: 14 }}>
-      <dt style={{ color: tokens.hairlineMid }}>{label}</dt>
-      <dd style={{ margin: 0, textAlign: 'right', fontWeight: 500 }}>{children}</dd>
+      <dt style={{ color: tokens.hairlineMid, minWidth: 0, flex: 1 }}>{label}</dt>
+      <dd style={{ margin: 0, textAlign: 'right', fontWeight: 500, maxWidth: '48%', flexShrink: 0, overflowWrap: 'anywhere' }}>{children}</dd>
     </div>
   );
 }
 
 export const RouteDetail = forwardRef<HTMLHeadingElement, Props>(function RouteDetail(
-  { route: r, home, allWindows, allRoutes, generated, excludedReasons, backLabel, favorite, offerCompactLink, onBack, onOpen, onToggleFavorite, onShowOnMap, onCursorKm },
+  { route: r, home, allRoutes, generated, excludedReasons, favorite, onClose, onOpen, onToggleFavorite, onCursorKm },
   headingRef,
 ) {
   const dist = r.distanceKm?.[home];
   const gmaps = r.gmaps;
-  const compact = offerCompactLink && r.gmapsCompact && r.gmapsCompact !== gmaps ? r.gmapsCompact : null;
-  const closes = r.kind === 'circuit' || r.kind === 'linked-loop';
   const c = r.circuit;
   const detail = r.profile;
   const mix = limitMix(detail);
@@ -84,45 +74,32 @@ export const RouteDetail = forwardRef<HTMLHeadingElement, Props>(function RouteD
   ];
 
   return (
-    <article aria-labelledby="detail-heading" style={{ paddingBottom: 32 }}>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-        <Button kind={BKIND.secondary} shape={SHAPE.pill} size={SIZE.compact} onClick={onBack} overrides={{ BaseButton: { style: { minHeight: '44px' } } }}>
-          <span aria-hidden="true">←&nbsp;</span>
-          {backLabel}
-        </Button>
-        {onShowOnMap ? (
-          <Button kind={BKIND.secondary} shape={SHAPE.pill} size={SIZE.compact} onClick={onShowOnMap} overrides={{ BaseButton: { style: { minHeight: '44px' } } }}>
-            Show on map
-          </Button>
-        ) : null}
+    <article aria-labelledby="detail-heading" className="fr-detail">
+      <header className="fr-detail-actions">
+        <KindLabel kind={r.kind} color={r.color} />
         <Button
           kind={BKIND.secondary}
-          shape={SHAPE.pill}
+          shape={SHAPE.square}
           size={SIZE.compact}
           aria-pressed={favorite}
+          aria-label={favorite ? 'Remove from favorites' : 'Add to favorites'}
+          title={favorite ? 'Remove from favorites' : 'Add to favorites'}
           onClick={() => onToggleFavorite(r.key)}
-          overrides={{ BaseButton: { style: { minHeight: '44px' } } }}
+          overrides={{ BaseButton: { style: { minHeight: '44px', minWidth: '44px' } } }}
         >
-          <span aria-hidden="true">{favorite ? '★ ' : '☆ '}</span>
-          {favorite ? 'Saved' : 'Save'}
+          <StatIcon name="favorite" size={20} filled={favorite} />
         </Button>
-      </div>
+        <Button kind={BKIND.secondary} shape={SHAPE.square} size={SIZE.compact} onClick={onClose} aria-label="Close details" title="Close details" overrides={{ BaseButton: { style: { minHeight: '44px', minWidth: '44px' } } }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+        </Button>
+      </header>
 
-      {excludedReasons.length ? (
-        <div style={{ marginBottom: 16 }}>
-          <Notice tone="warning">
-            <strong>This route no longer matches your filters.</strong> {excludedReasons.join('. ')}.{' '}
-            It stays open here so you can finish reading; go back to see current results.
-          </Notice>
-        </div>
-      ) : null}
-
-      <KindLabel kind={r.kind} />
+      <div className="fr-detail-content fr-scroll" key={r.key}>
       <h2
         id="detail-heading"
         ref={headingRef}
         tabIndex={-1}
-        style={{ fontSize: 24, lineHeight: '32px', fontWeight: 700, margin: '8px 0 4px' }}
+        style={{ fontSize: 24, lineHeight: '32px', fontWeight: 700, margin: '0 0 4px', overflowWrap: 'anywhere' }}
       >
         {r.name}
       </h2>
@@ -130,74 +107,61 @@ export const RouteDetail = forwardRef<HTMLHeadingElement, Props>(function RouteD
         {KIND_SHAPE[r.kind]}
         {c ? ` · ${c.areaName}` : ''}
       </p>
-      {r.sharesWith.length ? (
-        <p style={{ margin: '6px 0 0', fontSize: 14, lineHeight: '20px', color: tokens.hairlineMid }}>
-          {r.sharesWith.length === 1 ? 'Runs along' : 'Runs along the circuits'}{' '}
-          {r.sharesWith.map((o) => `${o.name} (${Math.round(o.share * 100)}% of its line)`).join(' and ')}.{' '}
-          Shared circuits are drawn faintly underneath this route on the map.
-        </p>
-      ) : null}
-
       <dl style={{ margin: '16px 0 0' }}>
-        <Row label="Length">{km(r.km)}</Row>
-        <Row label="Estimated drive time">{r.driveMin != null ? `~${r.driveMin} min` : 'Unknown'}</Row>
-        <Row label={r.funScoreBasis === 'route-total' ? 'Fun score' : 'Road fun (average)'}>{Math.round(r.funScore)} / 100</Row>
-        <Row label="Fun kilometres">{km(r.funKm)}</Row>
-        {r.connectorShare != null ? <Row label="Lower-scored connector roads">{pct(r.connectorShare)} of distance</Row> : null}
-        {r.retraceShare != null ? (
-          <Row label="Driven twice, once each way">{r.retraceShare < 0.01 ? 'None' : `${pct(r.retraceShare)} of distance`}</Row>
-        ) : null}
-        <Row label={`Straight-line from ${home}`}>{dist != null ? `${dist} km` : 'Not in data for this route type'}</Row>
-        {c ? (
-          <Row label="Modeled reach from Zaandam">{c.reachMinFromZaandam != null ? `~${c.reachMinFromZaandam} min` : 'Unknown'}</Row>
-        ) : null}
-        {detail.climbM != null ? <Row label="Climb">+{detail.climbM} m</Row> : null}
-        {detail.cornerCount ? (
-          <Row label="Corners">
-            {detail.cornerCount.tight} tight · {detail.cornerCount.sweet} sweet-spot · {detail.cornerCount.flowing} flowing
-          </Row>
-        ) : null}
-        {r.clusterId != null ? <Row label="Local cluster">#{r.clusterId} (unnamed)</Row> : null}
-        <Row label="Road data snapshot">{formatDate(generated)}</Row>
+        <Row label={<span className="fr-route-stat"><StatIcon name="home" />Straight-line from {home}</span>}>{dist != null ? `${dist} km` : 'Distance unknown'}</Row>
+        <Row label={<span className="fr-route-stat"><StatIcon name="route" />Length</span>}>{km(r.km)}</Row>
+        <Row label={<span className="fr-route-stat"><StatIcon name="clock" />Estimated drive time</span>}>{r.driveMin != null ? `~${r.driveMin} min` : 'Unknown'}</Row>
+        <Row label={<span className="fr-route-stat"><StatIcon name="score" />{r.funScoreBasis === 'route-total' ? 'Fun score' : 'Road fun (average)'}</span>}>{Math.round(r.funScore)} / 100</Row>
       </dl>
-
-      {badges.length ? (
-        <ul style={{ display: 'flex', flexWrap: 'wrap', gap: 8, listStyle: 'none', padding: 0, margin: '16px 0 0' }}>
-          {badges.map((b) => (
-            <li key={b} style={{ background: tokens.canvasSoft, borderRadius: 999, padding: '6px 12px', fontSize: 14, fontWeight: 500 }}>
-              {b}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-
-      {detail.why.length || r.traits.length ? (
+      {detail.why[0] ? <p style={{ fontSize: 16, lineHeight: '24px' }}>{detail.why[0]}</p> : null}
+      {detail.stops.length || c?.flags.length ? (
         <>
-          <SectionTitle>Why it is here</SectionTitle>
-          <ul style={{ margin: 0, paddingLeft: 20, fontSize: 16, lineHeight: '24px' }}>
-            {detail.why.map((w) => <li key={w}>{w}</li>)}
-            {r.traits.length ? <li>Traits: {r.traits.join(', ')}</li> : null}
+          <SectionTitle>Heads-up along the route</SectionTitle>
+          <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14, lineHeight: '20px' }}>
+            {groupStops(detail.stops).map(([note, count, first]) => (
+              <li key={note}>{note} ({count > 1 ? `${count} places` : '1 place'}, “{stopPin(first.type)}” pin on the map)</li>
+            ))}
+            {c?.flags.map((flag) => <li key={flag}>{FLAG_LABEL[flag] ?? flag}</li>)}
           </ul>
         </>
       ) : null}
-
-      <SectionTitle>Score breakdown (0–100)</SectionTitle>
-      <div style={{ display: 'grid', gap: 6 }}>
-        {DIMENSIONS.map((d) => (
-          <Meter key={d} label={DIM_LABEL[d]} value={r.dims[d]} />
-        ))}
-      </div>
-      {r.catalog === 'sprint' ? (
-        <p style={{ fontSize: 12, color: tokens.hairlineMid, margin: '6px 0 0' }}>Sprint scores are stored 0–1 and shown ×100.</p>
+      {excludedReasons.length ? (
+        <div style={{ margin: '16px 0' }}>
+          <Notice tone="warning">
+            <strong>This route no longer matches your filters.</strong> {excludedReasons.join('. ')}.{' '}
+            It stays open here so you can finish reading; go back to see current results.
+          </Notice>
+        </div>
       ) : null}
 
-      {r.roads.length ? (
-        <>
-          <SectionTitle>Roads</SectionTitle>
+      {detail.why.length || r.traits.length || badges.length ? (
+        <Disclosure title="Why this route">
+          <ul style={{ margin: 0, paddingLeft: 20, fontSize: 16, lineHeight: '24px' }}>
+            {detail.why.map((w) => <li key={w}>{w}</li>)}
+            {r.traits.length ? <li>Traits: {r.traits.join(', ')}</li> : null}
+            {badges.map((badge) => <li key={badge}>{badge}</li>)}
+          </ul>
+        </Disclosure>
+      ) : null}
+
+      {detail.elev.length || detail.curv.length ? (
+        <Disclosure title="Elevation and curvature">
+          <ProfileChart circuit={detail} totalKm={r.km} onCursorKm={onCursorKm} />
+        </Disclosure>
+      ) : null}
+
+      {r.roads.length || r.sharesWith.length || mix.length ? (
+        <Disclosure title="Roads and route composition">
           {r.anchorRoads.length ? (
             <p style={{ fontSize: 14, lineHeight: '20px', margin: '0 0 8px' }}>
               High-fun stretches in driving order: {r.anchorRoads.join(' → ')}. Each was checked in this direction
               only, so none is a reversible sprint. Other listed roads may connect or return between them.
+            </p>
+          ) : null}
+          {r.sharesWith.length ? (
+            <p style={{ margin: '0 0 8px', fontSize: 14, lineHeight: '20px', color: tokens.hairlineMid }}>
+              Runs along {r.sharesWith.map((overlap) => `${overlap.name} (${Math.round(overlap.share * 100)}% of its line)`).join(' and ')}.
+              {' '}Shared circuits are drawn faintly underneath this route on the map.
             </p>
           ) : null}
           <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
@@ -210,118 +174,68 @@ export const RouteDetail = forwardRef<HTMLHeadingElement, Props>(function RouteD
               </li>
             ))}
           </ul>
-        </>
-      ) : null}
-
-      {detail.elev.length || detail.curv.length ? (
-        <>
-          <SectionTitle>Elevation and curvature</SectionTitle>
-          <ProfileChart circuit={detail} totalKm={r.km} onCursorKm={onCursorKm} />
           {mix.length ? (
-            <p style={{ fontSize: 14, margin: '8px 0 0' }}>
-              Posted limits along the route: {mix.map((m) => `${m.lim} km/h for ${pct(m.share)}`).join(', ')}. These are legal maximums, not targets.
-            </p>
+            <>
+              <p className="fr-route-stat" style={{ margin: '16px 0 8px', fontSize: 14, fontWeight: 500 }}><StatIcon name="limit" />Posted limits</p>
+              <ul style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(88px, 1fr))', gap: 8, listStyle: 'none', padding: 0, margin: 0 }}>
+                {mix.map((limit) => (
+                  <li key={limit.lim} style={{ display: 'grid', gap: 4, padding: 8, borderRadius: 8, backgroundColor: tokens.canvasSofter }}>
+                    <span style={{ fontSize: 14, fontWeight: 500 }}>{limit.lim} km/h</span>
+                    <span style={{ fontSize: 12, color: tokens.hairlineMid }}>{pct(limit.share)} of route</span>
+                  </li>
+                ))}
+              </ul>
+            </>
           ) : null}
-        </>
+        </Disclosure>
       ) : null}
 
-      {detail.stops.length ? (
-        <>
-          <SectionTitle>Heads-up along the route</SectionTitle>
-          <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14, lineHeight: '20px' }}>
-            {groupStops(detail.stops).map(([note, n, first]) => (
-              <li key={note}>
-                {note} ({n > 1 ? `${n} places` : '1 place'}, “{stopPin(first.type)}” pin on the map)
-              </li>
-            ))}
-          </ul>
-        </>
-      ) : null}
+      <Disclosure title="Score breakdown (0–100)">
+        <div style={{ display: 'grid', gap: 6 }}>
+          {DIMENSIONS.map((dimension) => <Meter key={dimension} label={DIM_LABEL[dimension]} value={r.dims[dimension]} />)}
+        </div>
+      </Disclosure>
 
-      {c?.flags.length ? (
-        <ul style={{ margin: '12px 0 0', paddingLeft: 20, fontSize: 14 }}>
-          {c.flags.map((f) => (
-            <li key={f}>{FLAG_LABEL[f] ?? f}</li>
-          ))}
-        </ul>
-      ) : null}
+      <Disclosure title="Route facts and sources">
+        <dl style={{ margin: 0 }}>
+          <Row label="Fun kilometres">{km(r.funKm)}</Row>
+          {r.connectorShare != null ? <Row label="Lower-scored connector roads">{pct(r.connectorShare)} of distance</Row> : null}
+          {r.retraceShare != null ? <Row label="Driven twice, once each way">{r.retraceShare < 0.01 ? 'None' : `${pct(r.retraceShare)} of distance`}</Row> : null}
+          {c ? <Row label="Modeled reach from Zaandam">{c.reachMinFromZaandam != null ? `~${c.reachMinFromZaandam} min` : 'Unknown'}</Row> : null}
+          {detail.climbM != null ? <Row label="Climb">+{detail.climbM} m</Row> : null}
+          {detail.cornerCount ? <Row label="Corners">{detail.cornerCount.tight} tight · {detail.cornerCount.sweet} sweet-spot · {detail.cornerCount.flowing} flowing</Row> : null}
+          {r.clusterId != null ? <Row label="Local cluster">#{r.clusterId} (unnamed)</Row> : null}
+          <Row label="Road data snapshot">{formatDate(generated)}</Row>
+        </dl>
+      </Disclosure>
 
-      <SectionTitle>Access and safety</SectionTitle>
-      <SoftCard>
+      <Disclosure title="Before you drive">
+        <p style={{ margin: 0, fontSize: 14, lineHeight: '20px' }}>
+          Check current signs and restrictions. Access is based on sampled data, not live permission. Navigation may reroute.
+        </p>
         {r.kind === 'sprint' ? (
-          <p style={{ margin: '0 0 12px', fontSize: 14, lineHeight: '20px', fontWeight: 500 }}>
-            {r.returnNote ?? 'Reverse the line only after finding a safe, legal place to turn around.'} The end point is
-            not a verified turning place.
+          <p style={{ margin: '8px 0 0', fontSize: 14, lineHeight: '20px' }}>
+            Turn around only where safe and legal. The route endpoint is not a verified turning place.
           </p>
         ) : null}
         {r.kind === 'linked-open' ? (
-          <p style={{ margin: '0 0 12px', fontSize: 14, lineHeight: '20px', fontWeight: 500 }}>
-            This ride ends away from its start and was checked in this direction only. Do not assume it can be driven in
-            reverse; plan your own legal way back.
+          <p style={{ margin: '8px 0 0', fontSize: 14, lineHeight: '20px' }}>
+            Only this direction was checked. Plan your own legal return.
           </p>
         ) : null}
-        <p style={{ margin: '0 0 12px', fontSize: 14, lineHeight: '20px' }}>
-          The {closes ? 'start and finish' : 'start and end'} are points on the road network, not checked parking, meeting or
-          turning places.
+        <p style={{ margin: '8px 0 0', fontSize: 14, lineHeight: '20px' }}>
+          Start and end are road-network points, not verified parking or meeting places.
         </p>
-        <p style={{ margin: '0 0 8px', fontSize: 14, lineHeight: '20px' }}>
-          Legal in {r.windows.length} of {allWindows.length} sample departures checked in the pinned data. These dates are fixed
-          samples, not a check for today:
-        </p>
-        <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14, lineHeight: '20px' }}>
-          {r.windows.map((w) => (
-            <li key={w}>{formatWindow(w)}</li>
-          ))}
-        </ul>
-        <p style={{ margin: '12px 0 0', fontSize: 14, lineHeight: '20px' }}>{SAFETY_NOTE}</p>
-      </SoftCard>
-
-      <SectionTitle>Take it with you</SectionTitle>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-        {gmaps ? (
-          <Button
-            $as="a"
-            href={gmaps}
-            target="_blank"
-            rel="noopener noreferrer"
-            shape={SHAPE.pill}
-            overrides={{ BaseButton: { style: { minHeight: '48px' } } }}
-          >
-            Open in Google Maps
-          </Button>
-        ) : null}
-        {compact ? (
-          <Button
-            $as="a"
-            href={compact}
-            target="_blank"
-            rel="noopener noreferrer"
-            kind={BKIND.secondary}
-            shape={SHAPE.pill}
-            overrides={{ BaseButton: { style: { minHeight: '48px' } } }}
-          >
-            {COMPACT_WAYPOINTS}-stop link
-          </Button>
-        ) : null}
-      </div>
-      <p style={{ fontSize: 14, lineHeight: '20px', color: tokens.hairlineMid, margin: '8px 0 0' }}>
-        {gmaps
-          ? `${r.gmapsSource === 'line' ? 'The link follows points taken from this route’s line. ' : ''}${
-              compact
-                ? `If Google Maps on your phone drops stops or will not open the route, use the ${COMPACT_WAYPOINTS}-stop link instead; it strays from the line more. `
-                : ''
-            }Google Maps may choose its own roads between those points, so compare it with the line here; it does not confirm access.${r.kind === 'sprint' ? ' It covers one direction only.' : ''}`
-          : 'No navigation link exists for this route yet.'}
-      </p>
+      </Disclosure>
 
       {similar.length ? (
-        <>
-          <SectionTitle>More like this</SectionTitle>
+        <Disclosure title="Similar routes">
           <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 8 }}>
             {similar.map((s) => (
               <li key={s.key}>
                 <button
                   type="button"
+                  className="fr-similar-route"
                   onClick={(e) => onOpen(s, e.currentTarget)}
                   style={{
                     display: 'block',
@@ -338,23 +252,29 @@ export const RouteDetail = forwardRef<HTMLHeadingElement, Props>(function RouteD
                   }}
                 >
                   <span style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
-                    <KindLabel kind={s.kind} />
-                    <span style={{ fontSize: 14, fontWeight: 500 }}>
+                    <KindLabel kind={s.kind} color={s.color} />
+                    <span className="fr-route-stat" style={{ fontSize: 14, fontWeight: 500 }}>
+                      <StatIcon name="score" />
                       {Math.round(s.funScore)}
                       <span style={{ color: tokens.hairlineMid, fontWeight: 400 }}>/100</span>
                     </span>
                   </span>
-                  <span style={{ display: 'block', fontSize: 16, lineHeight: '24px', fontWeight: 700, margin: '4px 0 2px' }}>{s.name}</span>
-                  <span style={{ display: 'block', fontSize: 14, lineHeight: '20px', color: tokens.hairlineMid }}>
-                    {km(s.km)}
-                    {s.driveMin != null ? ` · ~${s.driveMin} min drive` : ''}
-                  </span>
+                  <span style={{ display: 'block', fontSize: 16, lineHeight: '22px', fontWeight: 500, margin: '4px 0 2px', overflowWrap: 'anywhere' }}>{s.name}</span>
+                  <RouteStats route={s} home={home} />
                 </button>
               </li>
             ))}
           </ul>
-        </>
+        </Disclosure>
       ) : null}
+      </div>
+      {gmaps ? <footer className="fr-detail-navigation">
+        <Button $as="a" href={gmaps} target="_blank" rel="noopener noreferrer" aria-label="Open in Google Maps" title="Open in Google Maps" kind={BKIND.secondary} shape={SHAPE.default} size={SIZE.compact}
+          overrides={{ BaseButton: { style: { minHeight: '44px', gap: '8px', width: '100%' } } }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M21 3L3 10l7 3 3 7 8-17zM10 13L21 3" /></svg>
+          Navigate
+        </Button>
+      </footer> : null}
     </article>
   );
 });
