@@ -7,7 +7,9 @@ import { Client } from 'styletron-engine-monolithic';
 import { theme } from '../theme';
 import { validateRoutesDoc } from '../data/validate';
 import { getCountry } from '../data/countries';
+import { buildCatalogue, KIND_SHAPE, routeForRoad, type Kind } from '../data/model';
 import { App } from './App';
+import { ResultCard } from './Results';
 
 vi.mock('../data/load', () => ({ loadAll: vi.fn() }));
 vi.mock('../map/MapView', () => ({
@@ -66,6 +68,7 @@ describe('responsive interactions', () => {
     const longRoutes = validateRoutesDoc({
       ...routes.doc,
       sprints: [{ ...routes.doc.sprints[0], name: 'A long route name → With several places → And a final place Sprint',
+        traits: ['flowing', 'quiet', 'smooth'],
         line: [[4.8, 52.4], [5.8, 52.4]], end: { lon: 5.8, lat: 52.4 } }],
     });
     vi.mocked(loadAll).mockResolvedValue({ routes: { value: longRoutes, error: null }, linked: { value: null, error: null } });
@@ -75,7 +78,12 @@ describe('responsive interactions', () => {
     const sheet = document.getElementById('sheet-body')!;
     sheet.scrollTop = 140;
     fireEvent.scroll(sheet);
-    await user.click(await screen.findByRole('button', { name: /Sprint Road fun average.*A long route name/ }));
+    const card = await screen.findByRole('button', { name: /^Sprint.*A long route name/ });
+    expect(card.querySelectorAll('[aria-label="Road fun average 60 out of 100"]')).toHaveLength(1);
+    expect(card.querySelector('.fr-route-stat')).toHaveAttribute('aria-label', 'Road fun average 60 out of 100');
+    expect(card).not.toHaveTextContent('Legal turnaround required');
+    expect(card).toHaveTextContent('flowing, quiet, smooth');
+    await user.click(card);
     const preview = mobile
       ? screen.getByRole('button', { name: 'Details' }).parentElement!.parentElement!
       : screen.getByRole('region', { name: 'Selected route' });
@@ -145,8 +153,8 @@ describe('responsive interactions', () => {
     expect(dialog.queryByText(/legal maximums/)).not.toBeInTheDocument();
     expect(dialog.getByText('Road fun (average)').closest('div')?.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
     expect(dialog.queryByRole('button', { name: /Navigation options and caveats/ })).not.toBeInTheDocument();
-    expect(dialog.getAllByRole('button', { name: /Roads and route composition|Before you drive|Score breakdown|Route facts and sources/ }).map((button) => button.textContent)).toEqual([
-      'Roads and route compositionDown Small', 'Score breakdown (0–100)Down Small', 'Route facts and sourcesDown Small', 'Before you driveDown Small',
+    expect(dialog.getAllByRole('button', { name: /Roads and route composition|Before you drive|Score breakdown|Route facts|Data sources and limitations/ }).map((button) => button.textContent)).toEqual([
+      'Roads and route compositionDown Small', 'Score breakdown (0–100)Down Small', 'Route factsDown Small', 'Data sources and limitationsDown Small', 'Before you driveDown Small',
     ]);
     expect(screen.getByRole('button', { name: 'Blank map' }).closest('[inert]')).not.toBeNull();
     expect(within(screen.getByRole('dialog')).queryByText(/Access is based on sampled data/)).not.toBeInTheDocument();
@@ -191,7 +199,7 @@ describe('responsive interactions', () => {
     const user = userEvent.setup();
     mount();
     await user.click(screen.getByRole('button', { name: 'Browse routes' }));
-    const card = screen.getByRole('button', { name: /Sprint Road fun average.*Test Road Sprint/ });
+    const card = screen.getByRole('button', { name: /^Sprint.*Test Road Sprint/ });
     const sheet = document.getElementById('sheet-body')!;
     sheet.scrollTop = 140;
     fireEvent.scroll(sheet);
@@ -229,20 +237,21 @@ describe('responsive interactions', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(screen.getByRole('button', { name: 'Change home: Haarlem' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Filters (1)' })).toBeVisible();
-    await user.click(screen.getByRole('button', { name: /Sprint Road fun average.*Test Road Sprint/ }));
+    await user.click(screen.getByRole('button', { name: /^Sprint.*Test Road Sprint/ }));
     await user.click(screen.getByRole('button', { name: 'Details' }));
     expect(within(await screen.findByRole('dialog')).getByText('Straight-line from Haarlem').closest('div')).toHaveTextContent('20 km');
   });
 
-  it('selects ranking styles directly and restores focus when dismissed', async () => {
+  it.each([true, false])('keeps ranking selections open and restores focus on dismissal (mobile=%s)', async (mobile) => {
+    viewport(mobile);
     const user = userEvent.setup();
     mount();
     await user.click(screen.getByRole('button', { name: 'Browse routes' }));
     await user.click(screen.getByRole('button', { name: 'Rank routes: Balanced' }));
     await user.click(screen.getByRole('radio', { name: 'Scenic' }));
-    await waitFor(() => expect(screen.queryByRole('group', { name: 'Route ranking' })).not.toBeInTheDocument());
+    expect(screen.getByRole('group', { name: 'Route ranking' })).toBeVisible();
+    expect(screen.getByRole('radio', { name: 'Scenic' })).toHaveAttribute('aria-checked', 'true');
     const ranking = screen.getByRole('button', { name: 'Rank routes: Scenic' });
-    await user.click(ranking);
     await user.keyboard('{Escape}');
     await waitFor(() => expect(ranking).toHaveFocus());
     expect(screen.getByTestId('map-selection')).toHaveTextContent('none');
@@ -251,8 +260,12 @@ describe('responsive interactions', () => {
     await waitFor(() => expect(screen.queryByRole('group', { name: 'Route ranking' })).not.toBeInTheDocument());
     expect(ranking).toHaveAccessibleName('Rank routes: Scenic');
     await user.click(ranking);
-    await user.click(screen.getByRole('button', { name: 'Nearest (direct)' }));
+    await user.click(screen.getByRole('button', { name: 'Nearest' }));
+    expect(screen.getByRole('group', { name: 'Route ranking' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Nearest' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: 'Rank routes: Nearest (straight-line)' })).toBeVisible();
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('group', { name: 'Route ranking' })).not.toBeInTheDocument());
   });
 
   it('switches compact filter views without losing live settings', async () => {
@@ -289,7 +302,7 @@ describe('responsive interactions', () => {
     await user.click(dialog.getByRole('checkbox', { name: 'Favorites only (1 saved)' }));
     await user.click(dialog.getByRole('button', { name: 'Done' }));
     expect(screen.getByRole('button', { name: 'Remove filter: Favorites only' })).toBeVisible();
-    expect(screen.getByRole('button', { name: /Sprint Road fun average.*Test Road Sprint/ })).toBeVisible();
+    expect(screen.getByRole('button', { name: /^Sprint.*Test Road Sprint/ })).toBeVisible();
   });
 
   it('opens search with results in one step and collapses for an overlap chooser', async () => {
@@ -330,11 +343,11 @@ describe('responsive interactions', () => {
     const user = userEvent.setup();
     mount();
     await user.click(screen.getByRole('button', { name: 'Browse routes' }));
-    const card = await screen.findByRole('button', { name: /Sprint Road fun average.*Test Road Sprint/ });
+    const card = await screen.findByRole('button', { name: /^Sprint.*Test Road Sprint/ });
     await user.click(card);
     expect(within(screen.getByRole('region', { name: 'Selected route' })).getByText('Test Road Sprint')).toBeVisible();
     expect(location.hash).not.toContain('detail=1');
-    await user.click(screen.getByRole('button', { name: /Sprint Road fun average.*Another Road Sprint/ }));
+    await user.click(screen.getByRole('button', { name: /^Sprint.*Another Road Sprint/ }));
     expect(within(screen.getByRole('region', { name: 'Selected route' })).getByText('Another Road Sprint')).toBeVisible();
     expect(screen.queryByRole('region', { name: 'Route details' })).not.toBeInTheDocument();
     expect(location.hash).not.toContain('detail=1');
@@ -400,6 +413,71 @@ describe('responsive interactions', () => {
 });
 
 describe('country catalogue integration', () => {
+  it.each(['nl', 'ee'] as const)('keeps all Browse families free of redundant shape copy (%s)', (id) => {
+    const country = getCountry(id);
+    const base = buildCatalogue(routes.doc, null, country).routes[0];
+    const kinds: Kind[] = ['circuit', 'linked-loop', 'linked-open', 'sprint'];
+    const cards = kinds.map((kind) => ({ ...base, key: `${id}:${kind}`, kind, traits: ['flowing', 'quiet'] }));
+    render(<Provider value={new Client()}><BaseProvider theme={theme}>
+      {cards.map((route) => <ResultCard key={route.key} route={route} home={country.homes[0]}
+        selected={false} favorite={false} onOpen={vi.fn()} onHover={vi.fn()} onToggleFavorite={vi.fn()} />)}
+    </BaseProvider></Provider>);
+    for (const route of cards) {
+      const card = document.querySelector(`[data-route-key="${route.key}"]`)!;
+      expect(card).not.toHaveTextContent(/Ends elsewhere|Returns to start|Joins high-fun|Legal turnaround required/);
+      expect(card).toHaveTextContent('flowing, quiet');
+      expect(card.querySelector(`[title="${KIND_SHAPE[route.kind]}"]`)).toBeNull();
+    }
+  });
+
+  it.each([
+    ['nl', true], ['nl', false], ['ee', true], ['ee', false],
+  ] as const)('previews nearby road sprints with shared cards and symbols (%s, mobile=%s)', async (id, mobile) => {
+    viewport(mobile);
+    const country = getCountry(id);
+    const prefix = id === 'ee' ? 'ee:' : '';
+    window.history.replaceState(null, '', `/?country=${id}#route=${encodeURIComponent(`${prefix}circuit:loop`)}&detail=1`);
+    const sprint = routes.doc.sprints[0];
+    const countryRoutes = validateRoutesDoc({
+      ...routes.doc, meta: { country: id, schema_version: 1 },
+      routes: [{ ...sprint, id: 'loop', name: 'Loop', area_id: 'test', area_name: 'Test area',
+        line: [...sprint.line, sprint.line[0]], score: { ...sprint.score, total: 60 }, flags: [],
+        roads: [...sprint.roads.map((road) => ({ ...road, fun: 60 })), { name: 'Unmapped road', km: 1, fun: 40 }] }],
+      sprints: [sprint, { ...sprint, id: 'far', name: 'Same road elsewhere Sprint',
+        line: [[20, 60], [20.01, 60.01]], start: { lon: 20, lat: 60 }, end: { lon: 20.01, lat: 60.01 } }],
+    }, country);
+    expect(countryRoutes.dropped).toEqual([]);
+    const cat = buildCatalogue(countryRoutes.doc, null, country);
+    const parent = cat.byKey.get(`${prefix}circuit:loop`)!;
+    expect(routeForRoad(parent, 'Test Road', cat.routes)?.key).toBe(`${prefix}sprint:test`);
+    expect(routeForRoad(parent, 'Unmapped road', cat.routes)).toBeNull();
+    const linkedParent = { ...parent, key: `${prefix}linked:loop`, kind: 'linked-loop' as const, catalog: 'linked' as const };
+    expect(routeForRoad(linkedParent, 'Test Road', cat.routes)?.key).toBe(`${prefix}sprint:test`);
+    expect(routeForRoad(linkedParent, 'Unmapped road', cat.routes)).toBeNull();
+    const { loadAll } = await import('../data/load');
+    vi.mocked(loadAll).mockResolvedValue({ routes: { value: countryRoutes, error: null }, linked: { value: null, error: null } });
+    const user = userEvent.setup();
+    mount();
+    await user.click(await screen.findByRole('button', { name: /Roads and route composition/ }));
+    const roadsList = within(screen.getByRole('list', { name: 'Roads in this route' }));
+    const card = roadsList.getByRole('button', { name: /^Test Road/ });
+    expect(card).toHaveClass('fr-similar-route');
+    expect(Array.from(card.querySelectorAll('.fr-route-stat')).map((e) => e.getAttribute('aria-label')))
+      .toEqual(['Road fun average 60 out of 100', 'Length on this route 5.0 km']);
+    const unavailable = roadsList.getByRole('button', { name: /Unmapped road/ });
+    expect(unavailable).toBeDisabled();
+    expect(unavailable).toHaveStyle({ color: '#5e5e5e', backgroundColor: '#f3f3f3' });
+    expect(roadsList.getByText('Unmapped road')).toBeVisible();
+    await user.click(unavailable);
+    expect(screen.getByTestId('map-selection')).toHaveTextContent(`${prefix}circuit:loop`);
+    await user.click(card);
+    await waitFor(() => expect(screen.getByTestId('map-selection')).toHaveTextContent(`${prefix}sprint:test`));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Route details' })).not.toBeInTheDocument();
+    expect(location.hash).not.toContain('detail=1');
+    expect(screen.getByRole('button', { name: 'Details' })).toBeVisible();
+  });
+
   it.each([
     ['nl', true], ['nl', false], ['ee', true], ['ee', false],
   ] as const)('supports the same search, home, save and empty-state journey (%s, mobile=%s)', async (id, mobile) => {
@@ -410,10 +488,16 @@ describe('country catalogue integration', () => {
     const line = id === 'ee' ? [[26.4, 58.4], [26.41, 58.41]] : routes.doc.sprints[0].line;
     const key = `${id === 'ee' ? 'ee:' : ''}sprint:test`;
     const otherSaved = id === 'ee' ? 'sprint:other' : 'ee:sprint:other';
+    const sourceNotes = id === 'ee' ? [
+      'Estonia national network; quiet is a static OSM proxy, not traffic counts',
+      'Elevation models 25 m EH2000 ground terrain, not surveyed road or bridge decks',
+      'OSM road evidence supplemented by geometry-matched Teeregister surface and base speed records; check current signs',
+    ] : [];
     localStorage.setItem('funroads:favorites:v1', JSON.stringify([otherSaved]));
     const countryRoutes = validateRoutesDoc({
       meta: { country: id, schema_version: 1 }, routes: [],
       sprints: [{ ...routes.doc.sprints[0], name: `${road} Sprint`, line,
+        why: ['Modelled as usually quiet (static estimate, not live traffic)', ...sourceNotes],
         start: { lon: line[0][0], lat: line[0][1] }, end: { lon: line[1][0], lat: line[1][1] },
         roads: [{ ...routes.doc.sprints[0].roads[0], name: road }],
         distance_km: { [country.homes[0]]: 10, [country.homes[1]]: 20 } }],
@@ -437,7 +521,7 @@ describe('country catalogue integration', () => {
     expect(screen.getByText('No routes match these filters.')).toBeVisible();
     await user.click(within(screen.getByRole('group', { name: 'Active filters' })).getByRole('button', { name: 'Reset filters' }));
     expect(screen.getByRole('button', { name: `Change home: ${country.homes[1]}` })).toBeVisible();
-    await user.click(screen.getByRole('button', { name: new RegExp(`Sprint Road fun average.*${road}`) }));
+    await user.click(screen.getByRole('button', { name: new RegExp(`^Sprint.*${road}`) }));
     const preview = mobile
       ? screen.getByRole('button', { name: 'Details' }).parentElement!.parentElement!
       : screen.getByRole('region', { name: 'Selected route' });
@@ -445,10 +529,23 @@ describe('country catalogue integration', () => {
     await user.click(screen.getByRole('button', { name: 'Details' }));
     expect(await screen.findByText(`Straight-line from ${country.homes[1]}`)).toBeVisible();
     expect(screen.getByText(`Straight-line from ${country.homes[1]}`).closest('div')).toHaveTextContent('20 km');
+    expect(Array.from(document.querySelectorAll('.fr-detail-content > dl:first-of-type dt')).map((e) => e.textContent))
+      .toEqual(['Road fun (average)', 'Length', 'Estimated drive time', `Straight-line from ${country.homes[1]}`]);
     expect(new URL(screen.getByRole('link', { name: 'Open in Google Maps' }).getAttribute('href')!).searchParams.get('destination')).toBe(`${line[1][1]},${line[1][0]}`);
+    await user.click(screen.getByRole('button', { name: /Why this route/ }));
+    const character = document.querySelector<HTMLElement>('.fr-detail ul')!;
+    expect(within(character).getByText('Modelled as usually quiet (static estimate, not live traffic)')).toBeVisible();
+    for (const note of sourceNotes) expect(within(character).queryByText(note)).not.toBeInTheDocument();
+    expect(character.textContent).not.toMatch(/Teeregister|EH2000|traffic counts/);
+    await user.click(screen.getByRole('button', { name: /^Route facts/ }));
+    for (const note of sourceNotes) expect(screen.queryByText(note)).not.toBeInTheDocument();
+    const sourcesButton = screen.getByRole('button', { name: /^Data sources and limitations/ });
+    expect(sourcesButton).toHaveAttribute('aria-expanded', 'false');
+    await user.click(sourcesButton);
+    for (const note of sourceNotes) expect(screen.getByText(note)).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Close details' }));
     expect(new URLSearchParams(location.hash.slice(1)).get('route')).toBe(key);
-  });
+  }, 10000);
 
   it.each(['nl', 'ee'] as const)('recovers from failed and partial country loading without losing saves (%s)', async (id) => {
     window.history.replaceState(null, '', `/?country=${id}`);
@@ -600,7 +697,7 @@ describe('country catalogue integration', () => {
     await user.click(screen.getByRole('radio', { name: 'Tartu' }));
     await user.click(screen.getByRole('button', { name: 'Remove from saved' }));
     expect(JSON.parse(localStorage.getItem('funroads:favorites:v1')!)).toEqual(['sprint:test']);
-    await user.click(screen.getByRole('button', { name: /Sprint Road fun average.*Test Road Sprint/ }));
+    await user.click(screen.getByRole('button', { name: /^Sprint.*Test Road Sprint/ }));
     await user.click(screen.getByRole('button', { name: 'Details' }));
     expect(within(await screen.findByRole('dialog')).getByText('Straight-line from Tartu').closest('div')).toHaveTextContent('65 km');
     expect(location.search).toBe('?country=ee');
@@ -615,5 +712,5 @@ describe('country catalogue integration', () => {
     expect(screen.getByRole('button', { name: 'Change home: Zaandam' })).toBeVisible();
     expect(vi.mocked(loadAll).mock.calls.at(-1)?.[2]?.id).toBe('nl');
     expect(screen.getByRole('heading', { name: 'FunRoads' })).toBeVisible();
-  });
+  }, 10000);
 });

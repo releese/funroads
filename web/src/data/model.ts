@@ -9,7 +9,7 @@ import {
   type RawRoad,
   type RoutesDoc,
 } from './raw';
-import { CIRCUIT_INK, spatialInfo, TINTS } from './spatial';
+import { CIRCUIT_INK, findOverlaps, spatialInfo, TINTS } from './spatial';
 import { haversineKm } from '../map/geo';
 import { mapsHandover, COMPACT_WAYPOINTS, DESKTOP_WAYPOINTS, type MapsHandover } from './gmaps';
 import { DEFAULT_COUNTRY, routeKey, type Country } from './countries';
@@ -360,6 +360,20 @@ export function buildCatalogue(
 /** Centre of a route's bounding box, used for cheap same-area similarity. */
 function bboxCenter(bbox: [number, number, number, number]): LonLat {
   return [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2];
+}
+
+/** Names alone are not enough: repeated road names must also share the route's line. */
+export function routeForRoad(route: RouteView, name: string, all: RouteView[]): RouteView | null {
+  const key = roadKey(name);
+  const candidates = all.filter((r) => r.key !== route.key && r.kind === 'sprint' && r.roadKeys.includes(key));
+  if (!candidates.length) return null;
+  const overlaps = route.kind === 'circuit' ? null : findOverlaps([route, ...candidates].map((r) => ({
+    key: r.key, bbox: r.bbox, line: r.line, isCircuit: r.key === route.key, rank: r.funKm,
+  })));
+  return candidates.map((r) => ({
+    r, share: (overlaps ? overlaps.get(r.key) : r.sharesWith)?.find((o) => o.key === route.key)?.share ?? 0,
+  })).filter(({ share }) => share >= 0.5)
+    .sort((a, b) => b.share - a.share || b.r.funScore - a.r.funScore || a.r.key.localeCompare(b.r.key))[0]?.r ?? null;
 }
 
 /**

@@ -73,15 +73,16 @@ export function DiscoveryControls(p: ControlProps & { onOpenFilters: () => void;
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
                 </Button>
               </div>
-              <ProfileChoices filters={f} onChange={(next) => { onChange(next); close(); }} />
+              <ProfileChoices filters={f} onChange={onChange} />
               <p style={{ margin: '16px 0 8px', fontSize: 14, fontWeight: 500 }}>Or order by</p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 4 }}>
                 {SORTS.filter((sort) => sort.id !== 'profile').map((sort) => (
                   <Button key={sort.id} kind={f.sort === sort.id ? KIND.primary : KIND.secondary} shape={SHAPE.default} size={SIZE.compact}
-                    aria-pressed={f.sort === sort.id} onClick={() => { onChange({ ...f, sort: sort.id }); close(); }}
+                    aria-pressed={f.sort === sort.id} onClick={() => onChange({ ...f, sort: sort.id })}
+                    title={sort.id === 'nearest' ? 'Straight-line distance from your selected home' : undefined}
                     overrides={{ BaseButton: { style: { minHeight: '44px', fontSize: '14px', textAlign: 'left', justifyContent: 'flex-start', gap: '6px', paddingLeft: '8px', paddingRight: '8px' } } }}>
                     <StatIcon name={sort.id === 'nearest' ? 'home' : sort.id === 'score' ? 'score' : 'route'} />
-                    {sort.id === 'nearest' ? 'Nearest (direct)' : sort.id === 'shortest' ? 'Shortest' : sort.id === 'longest' ? 'Longest' : sort.label}
+                    {sort.id === 'nearest' ? 'Nearest' : sort.id === 'shortest' ? 'Shortest' : sort.id === 'longest' ? 'Longest' : sort.label}
                   </Button>
                 ))}
               </div>

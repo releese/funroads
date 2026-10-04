@@ -2,6 +2,56 @@
 
 ## Start here: current state and next work
 
+### Latest shared design-comment audit
+
+The following comments are implemented in the shared NL/EE UI:
+
+- Country selector beneath FunRoads, flush text alignment, transparent 44 px
+  target and underline interaction cue (published).
+- Score-first icon metadata in Browse cards, previews, overlap choosers and
+  similar-route cards; expanded details now use fun, length, time, distance.
+  Sprint scores remain explicitly road averages.
+- Overlap chooser cards use separate type, name and metadata rows in Browse
+  order, with matching 16 px title text, white fill and 16 px corners.
+- No visible `direct` suffix; accessible labels still explain straight-line
+  distance. Browse cards omit both `Legal turnaround required` and
+  `Ends elsewhere`, while retaining traits. Shape and safety guidance remain
+  in details; meaningful shape filter choices remain.
+- Browse scrollbar inset by 2 px without changing the 16 px text alignment.
+- Ranking choices apply without dismissing the popup. Close, Escape and
+  outside interaction still dismiss it.
+- `Why this route` contains route character, not country-wide source caveats.
+- Practical measurements are in `Route facts`; attribution, links, coverage
+  and source caveats are in the separate collapsed `Data sources and limitations`.
+- Road composition uses the same card component as similar routes, with
+  score and length icons. Roads with a matching geometrically shared sprint
+  open a compact map preview. Same-name roads elsewhere are rejected.
+  Roads without a matching standalone sprint are disabled and grayed out,
+  with readable gray text and a soft-gray background, not fake links.
+  Road matches reuse existing circuit overlap data and stay memoized while
+  the selected route/catalogue is unchanged; linked routes use the same
+  overlap primitive without repeating map-color assignment.
+
+Validation: 145 Vitest tests, 6 Node checks, typecheck, production build and
+build-integrity check passed. Country-parity regressions cover all four Browse
+families, both layouts, detail ordering, hidden source notes and road previews.
+Live EE mobile (390×844) and NL desktop (1789×1288) checks also confirmed the
+detail ordering, collapsed source disclosure and matching 16 px road cards.
+All three roads in the reported EE circuit were clickable; the first opened
+its matching sprint in compact preview. The NL check kept an unmatched road
+noninteractive instead of choosing a same-name sprint elsewhere.
+
+The mobile overlap chooser now fills the available width with equal 12 px
+outside margins. Its conflicting MapLibre width cap is removed; the separate
+desktop sizing/control gutter is retained. Browser layout probes measured
+296/366 px widths with equal 12 px margins at 320/390 px, and unchanged
+286.72/420 px widths with a 72 px right gutter at 1024/1789 px.
+Chooser interaction tests and the
+typecheck/build/integrity check passed.
+
+Earlier browser hover/favorites/contrast limitations and physical-phone Maps
+retention checks are not resolved by these UI changes. Catalogues are unchanged.
+
 The circuit cleanup and shared country UI pass are complete for both countries.
 The latest approved scope also includes publishing all project sources,
 tests, documentation, acceptance evidence and both country catalogue pairs
@@ -33,14 +83,14 @@ context, and leave favorites intact. About copy now distinguishes EE's static
 OSM quiet proxy from NL's traffic inputs and reflects actual direct-distance
 availability. Partial catalogue failures now offer Retry route data.
 
-After the release push, the approved next increment was implemented locally:
+The next increment was published at `60ca0d9`:
 remember the chosen country and use a first-visit timezone hint
 (`Europe/Tallinn` → EE, `Europe/Amsterdam` → NL, otherwise the NL default).
 Explicit country URLs win. No geolocation prompt or IP lookup service.
 The user dropped legacy-link requirements; new route selections write an
 explicit country query parameter. Constrained Maps requests now reserve
 end-to-end distance regions and refine bend candidates from both ends inward.
-The user authorized publishing this increment to main for phone testing. Measurements,
+The user authorized this publication to main for phone testing. Measurements,
 validation and shape trade-offs: `reports/navigation-defaults-20261004.md`.
 
 **Linked follow-up is deferred by the user.** Only code inspection began;

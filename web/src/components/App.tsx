@@ -265,7 +265,7 @@ export function App({ dataBase, country = countryFromLocation() }: { dataBase: s
     setCursorKm(null);
     if (isMobile) setSheetOpen(false);
     requestFit(route.bbox);
-    if (isMobile) requestAnimationFrame(() => sheetHandle.current?.focus({ preventScroll: true }));
+    if (isMobile || detailOpen) requestAnimationFrame(() => sheetHandle.current?.focus({ preventScroll: true }));
   };
   useEffect(() => {
     if (sheetOpen && sheetBody.current) sheetBody.current.scrollTop = browseScroll.current;
@@ -384,6 +384,7 @@ export function App({ dataBase, country = countryFromLocation() }: { dataBase: s
       favorite={favs.has(selected.key)}
       onClose={closeDetail}
       onOpen={openRoute}
+      onPreview={browseRoute}
       onToggleFavorite={onToggleFavorite}
       onCursorKm={setCursorKm}
     />
@@ -478,7 +479,7 @@ export function App({ dataBase, country = countryFromLocation() }: { dataBase: s
               <section aria-label="Selected route" data-map-overlay="bottom" className={`fr-route-preview ${css({ backgroundColor: tokens.canvas, borderRadius: tokens.radiusCard, padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.16)' })}`}>
                 <KindLabel kind={selected.kind} color={selected.color} />
                 <strong style={{ display: 'block', margin: '6px 0', fontSize: 18 }}>{selected.name}</strong>
-                <RouteStats route={selected} home={filters.home} showScore />
+                <RouteStats route={selected} home={filters.home} />
                 {excludedReasons.length ? <Caption>Selected route no longer matches these results.</Caption> : null}
                 <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                   <Button shape={SHAPE.default} size={SIZE.compact} onClick={(e) => openRoute(selected, e.currentTarget)} overrides={{ BaseButton: { style: { minHeight: '44px' } } }}>Details</Button>
@@ -543,7 +544,7 @@ export function App({ dataBase, country = countryFromLocation() }: { dataBase: s
                     <div style={{ minWidth: 0 }}>
                       <KindLabel kind={selected.kind} color={selected.color} />
                       <strong style={{ display: 'block', fontSize: 16, lineHeight: '24px', overflowWrap: 'anywhere' }}>{selected.name}</strong>
-                      <RouteStats route={selected} home={filters.home} showScore />
+                      <RouteStats route={selected} home={filters.home} />
                       {excludedReasons.length ? <Caption>No longer matches these results.</Caption> : null}
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
@@ -554,7 +555,7 @@ export function App({ dataBase, country = countryFromLocation() }: { dataBase: s
               </div>
               <div id="sheet-body" ref={sheetBody} hidden={!sheetOpen && mapStatus !== 'unavailable'}
                 onScroll={(event) => { if (sheetOpen) browseScroll.current = event.currentTarget.scrollTop; }}
-                className={css({ flex: 1, minHeight: 0, overflowY: 'auto', padding: `0 ${tokens.space.lg} ${tokens.space.lg}` })}>
+                className={css({ flex: 1, minHeight: 0, overflowY: 'auto', marginRight: '2px', padding: `0 calc(${tokens.space.lg} - 2px) ${tokens.space.lg} ${tokens.space.lg}` })}>
                 {rail}
               </div>
             </section>

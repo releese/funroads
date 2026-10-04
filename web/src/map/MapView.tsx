@@ -102,8 +102,11 @@ export function chooserContent(routes: RouteView[], more: number, onPick: (key: 
     name.textContent = r.name;
     const kind = document.createElement('span');
     kind.className = 'fr-chooser__kind';
-    kind.innerHTML = renderToStaticMarkup(<><KindLabel kind={r.kind} color={r.color} /><RouteStats route={r} showScore /></>);
-    b.append(name, kind);
+    kind.innerHTML = renderToStaticMarkup(<KindLabel kind={r.kind} color={r.color} />);
+    const stats = document.createElement('span');
+    stats.className = 'fr-chooser__stats';
+    stats.innerHTML = renderToStaticMarkup(<RouteStats route={r} />);
+    b.append(kind, name, stats);
     b.addEventListener('click', () => onPick(r.key));
     el.append(b);
   }
@@ -379,7 +382,7 @@ function MapViewImpl(props: Props) {
         closeChooser();
         map.getCanvas().focus();
       };
-      chooser.current = new maplibregl.Popup({ className: 'fr-route-popup', closeButton: true, closeOnClick: false, maxWidth: 'min(340px, calc(100% - 24px))', focusAfterOpen: true })
+      chooser.current = new maplibregl.Popup({ className: 'fr-route-popup', closeButton: true, closeOnClick: false, maxWidth: 'none', focusAfterOpen: true })
         .setLngLat(e.lngLat)
         .setDOMContent(chooserContent(shownRoutes, routes.length - shownRoutes.length, pick, close))
         .addTo(map);

@@ -10,6 +10,12 @@ it('keeps chooser symbols decorative, labels intact and selection working', () =
   const route = { key: 'sprint:test', name: 'Road <one>', kind: 'sprint', color: '#666', km: 1.1, driveMin: 1, funScore: 60, funScoreBasis: 'road-average' } as RouteView;
   const chooser = chooserContent([route, { ...route, key: 'linked:test', name: 'Road two', kind: 'linked-loop', funScoreBasis: 'route-total' }], 0, pick, vi.fn());
   const buttons = within(chooser).getAllByRole('button');
+  for (const button of buttons) {
+    expect(Array.from(button.children).map((e) => e.className))
+      .toEqual(['fr-chooser__kind', 'fr-chooser__name', 'fr-chooser__stats']);
+    expect(button.querySelector('.fr-chooser__kind .fr-route-stat')).toBeNull();
+    expect(button.querySelector('.fr-chooser__stats .fr-route-stat')).not.toBeNull();
+  }
   expect(buttons[0]).toHaveTextContent('Road <one>');
   expect(buttons[0]).toHaveTextContent('Sprint');
   expect(buttons[0]).toHaveTextContent('1.1 km');
@@ -26,13 +32,15 @@ it('keeps chooser symbols decorative, labels intact and selection working', () =
 });
 
 it('does not substitute an area name for missing home distance', () => {
-  const route = { km: 5, driveMin: 6, distanceKm: null, circuit: { areaName: 'Test area' } } as RouteView;
+  const route = { km: 5, driveMin: 6, distanceKm: null, circuit: { areaName: 'Test area' }, funScore: 60, funScoreBasis: 'road-average' } as RouteView;
   const content = document.createElement('div');
   content.innerHTML = renderToStaticMarkup(<RouteStats route={route} home="Zaandam" />);
   expect(content).toHaveTextContent('Distance unknown');
   expect(within(content).queryByText('Test area')).not.toBeInTheDocument();
   content.innerHTML = renderToStaticMarkup(<RouteStats route={{ ...route, distanceKm: { Zaandam: 0, Haarlem: 20 } }} home="Zaandam" />);
-  expect(content).toHaveTextContent('0 km direct');
+  expect(content).toHaveTextContent('0 km');
+  expect(content).not.toHaveTextContent('direct');
+  expect(within(content).getByLabelText('0 km straight-line from Zaandam')).toHaveAttribute('title', 'Straight-line from Zaandam, not driving distance');
 });
 
 it('fits around measured detail and preview bounds without discarding them on short screens', () => {

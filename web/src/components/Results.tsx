@@ -3,7 +3,6 @@ import { styled } from 'baseui';
 import { Button, KIND as BKIND, SHAPE } from 'baseui/button';
 import type { Home } from '../data/raw';
 import type { RouteView } from '../data/model';
-import { KIND_SHAPE } from '../data/model';
 import { KindLabel, RouteStats, StatIcon } from './ui';
 import { tokens } from '../theme';
 
@@ -54,19 +53,13 @@ export const ResultCard = forwardRef<HTMLButtonElement, CardProps>(function Resu
       >
         <span style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', minHeight: 32, paddingRight: 56 }}>
           <KindLabel kind={r.kind} color={r.color} />
-          <span className="fr-route-stat" style={{ fontSize: 14, fontWeight: 500 }} aria-label={`${r.funScoreBasis === 'route-total' ? 'Fun score' : 'Road fun average'} ${Math.round(r.funScore)} out of 100`}>
-            <StatIcon name="score" />
-            {Math.round(r.funScore)}
-            <span style={{ color: tokens.hairlineMid, fontWeight: 400 }}>/100</span>
-          </span>
         </span>
         {selected ? <span style={{ display: 'block', marginTop: 4, fontSize: 12, fontWeight: 500 }}>Selected</span> : null}
         <span style={{ display: 'block', fontSize: 16, lineHeight: '22px', fontWeight: 500, margin: '6px 0 8px', overflowWrap: 'anywhere', textWrap: 'pretty' }}>{r.name}</span>
         <RouteStats route={r} home={home} />
-        {r.kind === 'sprint' || r.kind === 'linked-open' || r.traits.length ? (
-          <span style={{ display: 'block', marginTop: 6, fontSize: 12, lineHeight: '18px', color: tokens.hairlineMid }} title={KIND_SHAPE[r.kind]}>
-            {r.kind === 'sprint' ? 'Legal turnaround required' : r.kind === 'linked-open' ? 'Ends elsewhere' : ''}
-            {r.traits.length ? `${r.kind === 'sprint' || r.kind === 'linked-open' ? ' · ' : ''}${r.traits.join(', ')}` : ''}
+        {r.traits.length ? (
+          <span style={{ display: 'block', marginTop: 6, fontSize: 12, lineHeight: '18px', color: tokens.hairlineMid }}>
+            {r.traits.join(', ')}
           </span>
         ) : null}
         {r.anchorRoads.length > 1 && !r.name.startsWith(r.anchorRoads[0]) ? (

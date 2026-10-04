@@ -1,11 +1,11 @@
-import { forwardRef } from 'react';
+import { forwardRef, useMemo } from 'react';
 import { Button, KIND as BKIND, SHAPE, SIZE } from 'baseui/button';
 import type { Home, LinkedProfile } from '../data/raw';
 import { DIMENSIONS } from '../data/raw';
 import type { RouteView } from '../data/model';
-import { KIND_SHAPE, similarRoutes, stopPin } from '../data/model';
+import { KIND_SHAPE, routeForRoad, similarRoutes, stopPin } from '../data/model';
 import { formatDate, km, pct } from '../data/format';
-import { Disclosure, KindLabel, Meter, Notice, RouteStats, SectionTitle, StatIcon, SourceNotice } from './ui';
+import { Disclosure, KindLabel, Meter, Notice, RouteCard, RouteStats, SectionTitle, StatIcon, SourceNotice } from './ui';
 import { ProfileChart, limitMix } from './ProfileChart';
 import { tokens } from '../theme';
 import { DEFAULT_COUNTRY, type Country } from '../data/countries';
@@ -24,6 +24,7 @@ interface Props {
   favorite: boolean;
   onClose: () => void;
   onOpen: (r: RouteView, el: HTMLElement | null) => void;
+  onPreview: (r: RouteView, el: HTMLElement) => void;
   onToggleFavorite: (key: string) => void;
   onCursorKm: (km: number | null) => void;
 }
@@ -69,7 +70,7 @@ const headerIconStyle = {
 };
 
 export const RouteDetail = forwardRef<HTMLHeadingElement, Props>(function RouteDetail(
-  { route: r, home, allRoutes, generated, excludedReasons, favorite, onClose, onOpen, onToggleFavorite, onCursorKm, country = DEFAULT_COUNTRY },
+  { route: r, home, allRoutes, generated, excludedReasons, favorite, onClose, onOpen, onPreview, onToggleFavorite, onCursorKm, country = DEFAULT_COUNTRY },
   headingRef,
 ) {
   const dist = r.distanceKm?.[home];
@@ -77,8 +78,11 @@ export const RouteDetail = forwardRef<HTMLHeadingElement, Props>(function RouteD
   const handover = compact ? r.navigation.compact : r.navigation.desktop;
   const c = r.circuit;
   const detail = r.profile;
+  const sourceNotes = detail.why.filter((w) => /^(Estonia national network;|Elevation models |OSM road evidence supplemented )/.test(w));
+  const why = detail.why.filter((w) => !sourceNotes.includes(w));
   const mix = limitMix(detail);
   const similar = similarRoutes(r, allRoutes);
+  const roadTargets = useMemo(() => r.roads.map((road) => routeForRoad(r, road.name, allRoutes)), [r, allRoutes]);
   const badges = [
     ...r.profileLists.map((p) => `Top 12 ${PROFILE_NAME[p]} linked ride ${country.coverage ? 'within the pilot' : 'nationally'}`),
     ...(r.nearbyLists[home] ?? []).map((p) => `Top 12 ${PROFILE_NAME[p]} within 100 km of ${home}`),
@@ -121,12 +125,12 @@ export const RouteDetail = forwardRef<HTMLHeadingElement, Props>(function RouteD
         {c ? ` · ${c.areaName}` : ''}
       </p>
       <dl style={{ margin: '16px 0 0' }}>
-        <Row label={<span className="fr-route-stat"><StatIcon name="home" />Straight-line from {home}</span>}>{dist != null ? `${dist} km` : 'Distance unknown'}</Row>
+        <Row label={<span className="fr-route-stat"><StatIcon name="score" />{r.funScoreBasis === 'route-total' ? 'Fun score' : 'Road fun (average)'}</span>}>{Math.round(r.funScore)} / 100</Row>
         <Row label={<span className="fr-route-stat"><StatIcon name="route" />Length</span>}>{km(r.km)}</Row>
         <Row label={<span className="fr-route-stat"><StatIcon name="clock" />Estimated drive time</span>}>{r.driveMin != null ? `~${r.driveMin} min` : 'Unknown'}</Row>
-        <Row label={<span className="fr-route-stat"><StatIcon name="score" />{r.funScoreBasis === 'route-total' ? 'Fun score' : 'Road fun (average)'}</span>}>{Math.round(r.funScore)} / 100</Row>
+        <Row label={<span className="fr-route-stat"><StatIcon name="home" />Straight-line from {home}</span>}>{dist != null ? `${dist} km` : 'Distance unknown'}</Row>
       </dl>
-      {detail.why[0] ? <p style={{ fontSize: 16, lineHeight: '24px' }}>{detail.why[0]}</p> : null}
+      {why[0] ? <p style={{ fontSize: 16, lineHeight: '24px' }}>{why[0]}</p> : null}
       {detail.stops.length || c?.flags.length ? (
         <>
           <SectionTitle>Heads-up along the route</SectionTitle>
@@ -150,10 +154,10 @@ export const RouteDetail = forwardRef<HTMLHeadingElement, Props>(function RouteD
         </div>
       ) : null}
 
-      {detail.why.length || r.traits.length || badges.length ? (
+      {why.length || r.traits.length || badges.length ? (
         <Disclosure title="Why this route">
           <ul style={{ margin: 0, paddingLeft: 20, fontSize: 16, lineHeight: '24px' }}>
-            {detail.why.map((w) => <li key={w}>{w}</li>)}
+            {why.map((w) => <li key={w}>{w}</li>)}
             {r.traits.length ? <li>Traits: {r.traits.join(', ')}</li> : null}
             {badges.map((badge) => <li key={badge}>{badge}</li>)}
           </ul>
@@ -180,15 +184,20 @@ export const RouteDetail = forwardRef<HTMLHeadingElement, Props>(function RouteD
               {' '}Shared circuits are drawn faintly underneath this route on the map.
             </p>
           ) : null}
-          <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-            {r.roads.map((road) => (
-              <li key={road.name} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 14, borderBottom: `1px solid ${tokens.surfacePressed}` }}>
-                <span>{road.name}</span>
-                <span style={{ color: tokens.hairlineMid }}>
-                  {km(road.km)} · fun {road.fun}
-                </span>
-              </li>
-            ))}
+          <ul aria-label="Roads in this route" style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 8 }}>
+            {r.roads.map((road, i) => {
+              const target = roadTargets[i];
+              return <li key={road.name}>
+                <RouteCard name={road.name}
+                  title={target ? `Preview ${target.name}` : 'No matching standalone sprint in this catalogue'}
+                  onClick={target ? (e) => onPreview(target, e.currentTarget) : undefined}>
+                  <span style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', fontSize: 12, lineHeight: '18px', color: target ? tokens.hairlineMid : tokens.body }}>
+                    <span className="fr-route-stat" aria-label={`Road fun average ${Math.round(road.fun)} out of 100`}><StatIcon name="score" />{Math.round(road.fun)}/100</span>
+                    <span className="fr-route-stat" aria-label={`Length on this route ${km(road.km)}`}><StatIcon name="route" />{km(road.km)}</span>
+                  </span>
+                </RouteCard>
+              </li>;
+            })}
           </ul>
           {mix.length ? (
             <>
@@ -212,9 +221,7 @@ export const RouteDetail = forwardRef<HTMLHeadingElement, Props>(function RouteD
         </div>
       </Disclosure>
 
-      <Disclosure title="Route facts and sources">
-        {country.coverage ? <p style={{ fontSize: 14 }}>{country.coverage}</p> : null}
-        {country.sourceLinks ? <p style={{ fontSize: 14 }}><SourceNotice country={country} /></p> : null}
+      <Disclosure title="Route facts">
         <dl style={{ margin: 0 }}>
           <Row label="Fun kilometres">{km(r.funKm)}</Row>
           {r.connectorShare != null ? <Row label="Lower-scored connector roads">{pct(r.connectorShare)} of distance</Row> : null}
@@ -225,6 +232,14 @@ export const RouteDetail = forwardRef<HTMLHeadingElement, Props>(function RouteD
           {r.clusterId != null ? <Row label="Local cluster">#{r.clusterId} (unnamed)</Row> : null}
           <Row label="Road data snapshot">{formatDate(generated, country.timezone)}</Row>
         </dl>
+      </Disclosure>
+
+      <Disclosure title="Data sources and limitations">
+        {country.coverage ? <p style={{ fontSize: 14 }}>{country.coverage}</p> : null}
+        <p style={{ fontSize: 14 }}><SourceNotice country={country} /></p>
+        {sourceNotes.length ? <ul style={{ paddingLeft: 20, fontSize: 14, lineHeight: '20px' }}>
+          {sourceNotes.map((note) => <li key={note}>{note}</li>)}
+        </ul> : null}
       </Disclosure>
 
       <Disclosure title="Before you drive">
@@ -251,35 +266,13 @@ export const RouteDetail = forwardRef<HTMLHeadingElement, Props>(function RouteD
           <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 8 }}>
             {similar.map((s) => (
               <li key={s.key}>
-                <button
-                  type="button"
-                  className="fr-similar-route"
+                <RouteCard
+                  name={s.name}
+                  header={<KindLabel kind={s.kind} color={s.color} />}
                   onClick={(e) => onOpen(s, e.currentTarget)}
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    textAlign: 'left',
-                    font: 'inherit',
-                    color: tokens.ink,
-                    backgroundColor: tokens.canvas,
-                    border: `1px solid ${tokens.surfacePressed}`,
-                    borderRadius: tokens.radiusCard,
-                    padding: tokens.space.md,
-                    cursor: 'pointer',
-                    minHeight: '44px',
-                  }}
                 >
-                  <span style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
-                    <KindLabel kind={s.kind} color={s.color} />
-                    <span className="fr-route-stat" style={{ fontSize: 14, fontWeight: 500 }}>
-                      <StatIcon name="score" />
-                      {Math.round(s.funScore)}
-                      <span style={{ color: tokens.hairlineMid, fontWeight: 400 }}>/100</span>
-                    </span>
-                  </span>
-                  <span style={{ display: 'block', fontSize: 16, lineHeight: '22px', fontWeight: 500, margin: '4px 0 2px', overflowWrap: 'anywhere' }}>{s.name}</span>
                   <RouteStats route={s} home={home} />
-                </button>
+                </RouteCard>
               </li>
             ))}
           </ul>

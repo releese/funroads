@@ -92,6 +92,22 @@ export function KindLabel({ kind, color }: { kind: Kind; color?: string }) {
   );
 }
 
+/** Shared card chrome for related routes and roads within a route. */
+export function RouteCard({ name, header, children, onClick, title }: {
+  name: string; header?: ReactNode; children: ReactNode;
+  onClick?: React.MouseEventHandler<HTMLButtonElement>; title?: string;
+}) {
+  const style: React.CSSProperties = {
+    display: 'block', width: '100%', textAlign: 'left', font: 'inherit',
+    color: onClick ? tokens.ink : tokens.body,
+    backgroundColor: onClick ? tokens.canvas : tokens.canvasSofter, border: `1px solid ${tokens.surfacePressed}`,
+    borderRadius: tokens.radiusCard, padding: tokens.space.md, minHeight: '44px',
+  };
+  const content = <>{header}<span style={{ display: 'block', fontSize: 16, lineHeight: '22px', fontWeight: 500, margin: '4px 0 2px', overflowWrap: 'anywhere' }}>{name}</span>{children}</>;
+  return <button type="button" className="fr-similar-route" disabled={!onClick}
+    style={{ ...style, cursor: onClick ? 'pointer' : 'default' }} title={title} onClick={onClick}>{content}</button>;
+}
+
 /** Shared, decorative metadata symbols; meaning stays in the accompanying text. */
 export function StatIcon({ name, size = 14, filled = false }: { name: 'route' | 'clock' | 'home' | 'score' | 'limit' | 'filter' | 'favorite'; size?: number; filled?: boolean }) {
   return (
@@ -118,14 +134,14 @@ export function ProfileIcon({ profile }: { profile: Profile }) {
   );
 }
 
-export function RouteStats({ route, home, showScore = false }: { route: RouteView; home?: Home; showScore?: boolean }) {
+export function RouteStats({ route, home }: { route: RouteView; home?: Home }) {
   const distance = home ? route.distanceKm?.[home] : null;
   const scoreLabel = route.funScoreBasis === 'route-total' ? 'Fun score' : 'Road fun average';
   return (
     <span style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 12px', fontSize: 12, lineHeight: '18px', color: tokens.hairlineMid }}>
-      {showScore ? <span className="fr-route-stat" aria-label={`${scoreLabel} ${Math.round(route.funScore)} out of 100`} title={scoreLabel}>
+      <span className="fr-route-stat" aria-label={`${scoreLabel} ${Math.round(route.funScore)} out of 100`} title={scoreLabel}>
         <StatIcon name="score" />{Math.round(route.funScore)}/100
-      </span> : null}
+      </span>
       <span className="fr-route-stat" aria-label={`Length ${km(route.km)}`} title="Route length">
         <StatIcon name="route" />{km(route.km)}
       </span>
@@ -133,7 +149,7 @@ export function RouteStats({ route, home, showScore = false }: { route: RouteVie
         <StatIcon name="clock" />{route.driveMin != null ? `~${route.driveMin} min` : 'Unknown'}
       </span>
       {home ? <span className="fr-route-stat" aria-label={distance != null ? `${distance} km straight-line from ${home}` : `Straight-line distance from ${home} unknown`} title={`Straight-line from ${home}, not driving distance`}>
-        <StatIcon name="home" />{distance != null ? `${distance} km direct` : 'Distance unknown'}
+        <StatIcon name="home" />{distance != null ? `${distance} km` : 'Distance unknown'}
       </span> : null}
     </span>
   );

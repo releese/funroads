@@ -181,9 +181,12 @@ selecting a result fits the map and collapses Browse rather than opening details
 immediately. Every desktop result selection also stays in compact preview until
 Details is explicitly requested. Desktop previews and overlap choosers share a
 fixed bottom-right position with responsive breathing room above the bottom edge.
-Selected previews and overlap choosers show the score gauge and value first in their metadata row,
-before length, route time and direct home distance. Retain the sprint road-average
+Result cards, selected previews, similar routes and overlap choosers show the
+score gauge and value first in their metadata row, before length, route time
+and home distance. Retain the sprint road-average
 score label rather than implying a whole-route total.
+Overlap chooser cards use separate type, name and metadata rows in the same
+order as Browse. Do not wrap the type and metadata together into one row.
 There is no Fit route action; selection already fits the route.
 "Back to results" restores the same list position and filters;
 "Details" is deliberate, and closing it returns to the map preview.
@@ -192,6 +195,8 @@ then three independently selectable route-family buttons and result cards.
 Home choices show only the place names. Ranking offers driving-style tiles and
 other sort choices; balance/landscape/winding-road/leaf outline symbols distinguish
 Balanced/Scenic/Technical/Quiet. Symbols always accompany text.
+Ranking choices apply live without closing the popup; Close, Escape and outside
+clicks dismiss it.
 Mobile details are an inset modal card with 12 px outside spacing, safe-area
 allowances and 16 px corners. Visible map edges provide context; the background
 remains inert. Details use a fixed header: kind/swatch on the left, favorite and
@@ -202,6 +207,7 @@ thumb does not touch the card outline while text keeps its 16 px alignment.
 Use the same subtle scrollbar across the app, including menus and popovers:
 6 px rounded light-gray (`#dedede`) thumbs, transparent tracks and a slightly
 darker (`#c4c4c4`) hover. Honor system colors in forced-color mode.
+Inset the Browse scrollbar by 2 px while preserving its 16 px content alignment.
 Navigate uses soft-gray fill and 8 px corners. Header favorite and close use
 matching 20 px bare icons, without circles or background fills, spaced 4 px
 apart. Give the close glyph a 2 px stroke to balance the saved star.
@@ -214,12 +220,21 @@ Close details preserves route selection, filters and return context.
 Navigate opens Google Maps,
 identified in its accessible label and tooltip; returning already restores the
 selected map route, so there is no duplicate "Show on map" action.
-Keep the summary first: route name/type, straight-line distance from the selected
-home, length, estimated route drive time and fun score. Heads-up and route flags
+Keep the summary first: route name/type, fun score, length, estimated route
+drive time and straight-line distance from the selected home, in that order.
+Heads-up and route flags
 sit directly below the summary description, not between disclosures.
 Then show driving character, profile and road composition. Speed-limit shares
 live in a compact grid inside road composition, not a dense summary row.
-Keep score breakdown and
+Roads use the same card styling as similar routes, with gauge and length icons.
+Where a matching sprint shares the current route's line, clicking the road opens
+its compact map preview, not full details. Do not link an unrelated same-name road
+or fabricate a route for roads without standalone geometry. Gray out and
+disable road cards without a matching standalone sprint, keeping text readable.
+Keep practical measurements in "Route facts". Put source attribution, links and
+country-wide caveats in the separate collapsed "Data sources and limitations"
+disclosure, not repeated in "Why this route", which describes route character
+and traits. Keep score breakdown and
 sources lower down, then "Before you drive", with similar routes last. Navigate is the only navigation
 action; omit a separate navigation-options disclosure. Preserve access/turnaround caveats
 and truthful route-shape labels, without a large warning card ahead of the summary.
@@ -235,11 +250,16 @@ Favorites only belongs in Filters, with an active chip when enabled.
 Result-card stars have a subtle circular outline to
 signal clickability while retaining their generous invisible touch target.
 Result-card titles use Inter 500 at 16/22 px. Compact 12/18 px metadata uses
-route, clock and home icons with accessible labels; home distance is labeled
-"direct" and explained as straight-line, never driving distance. Missing home
+score, route, clock and home icons with accessible labels. Home distance has no
+visible "direct" suffix; its accessible label and tooltip explain straight-line,
+never driving distance. Missing home
 distances say "Distance unknown"; never substitute area names in that field.
 Avoid repeating
 loop descriptions already conveyed by the route type.
+Do not repeat "Ends elsewhere" or other route-shape descriptions on Browse cards;
+keep shape explanations in details and meaningful route-family filter choices.
+Do not repeat "Legal turnaround required" on sprint result cards; retain the
+practical turnaround guidance in route details.
 Reuse the same route-type line samples, small map-matching swatches, and
 14 px route/clock/home/gauge/road-sign outline icons across results, overlap chooser, previews,
 details and similar routes. Symbols supplement readable text, never replace it.
@@ -265,7 +285,8 @@ the catalogue has modeled reach times from both Zaandam and Haarlem.
 Combine legend and live map attribution in one Base Web popover with intact
 source links. Pointer clicks have no lingering blue outline; keyboard focus
 has a visible black outline. Route overlap choosers are bounded inside the
-map, scroll when needed, and include type, distance and duration. Touch/narrow
+map, fill the mobile width with equal 12 px outside margins, scroll when needed,
+and include type, distance and duration. Touch/narrow
 screens use a 22 px hit tolerance, mouse layouts 10 px.
 Shared disclosures use 250 ms transitions with a 100 ms content delay, twice
 as fast as the library default. Reduced-motion preferences override animation.

@@ -75,7 +75,7 @@ function assignTints(items: SpatialItem[]): Map<string, number> {
 const cellOf = (lon: number, lat: number) => `${Math.floor(lon / CELL_LON)}:${Math.floor(lat / CELL_LAT)}`;
 
 /** Share of each non-circuit route's line that runs on (within ~65 m of) a circuit. */
-function findOverlaps(items: SpatialItem[]): Map<string, Overlap[]> {
+export function findOverlaps(items: SpatialItem[]): Map<string, Overlap[]> {
   const cells = new Map<string, Set<string>>();
   for (const c of items.filter((i) => i.isCircuit)) {
     for (let i = 1; i < c.line.length; i++) {
