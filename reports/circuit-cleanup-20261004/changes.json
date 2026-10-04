@@ -1,0 +1,176 @@
+{
+  "ee": [
+    {
+      "id": "area-041-main",
+      "removed_edges": 2,
+      "before_km": 72.2,
+      "after_km": 71.8,
+      "before_min": 60,
+      "after_min": 60,
+      "before_retrace": 0.0033250207813798837,
+      "after_retrace": 0.0
+    },
+    {
+      "id": "area-150-main",
+      "removed_edges": 0,
+      "before_km": 50.1,
+      "after_km": 50.1,
+      "before_min": 42,
+      "after_min": 42,
+      "before_retrace": 0.1812375249500998,
+      "after_retrace": 0.1812375249500998
+    },
+    {
+      "id": "area-041-alt-1",
+      "removed_edges": 22,
+      "before_km": 53.2,
+      "after_km": 45.6,
+      "before_min": 46,
+      "after_min": 39,
+      "before_retrace": 0.14145974416854779,
+      "after_retrace": 0.0
+    },
+    {
+      "id": "area-166-main",
+      "removed_edges": 0,
+      "before_km": 45.9,
+      "after_km": 45.9,
+      "before_min": 39,
+      "after_min": 39,
+      "before_retrace": 0.17793283907544702,
+      "after_retrace": 0.17793283907544702
+    },
+    {
+      "id": "area-044-main",
+      "removed_edges": 0,
+      "before_km": 30.5,
+      "after_km": 30.5,
+      "before_min": 26,
+      "after_min": 26,
+      "before_retrace": 0.0,
+      "after_retrace": 0.0
+    }
+  ],
+  "nl": [
+    {
+      "id": "area-10140-main",
+      "removed_edges": 0,
+      "before_km": 96.6,
+      "after_km": 96.6,
+      "before_min": 117,
+      "after_min": 117,
+      "before_retrace": 0.0,
+      "after_retrace": 0.0
+    },
+    {
+      "id": "area-11828-main",
+      "removed_edges": 0,
+      "before_km": 99.7,
+      "after_km": 99.7,
+      "before_min": 123,
+      "after_min": 123,
+      "before_retrace": 0.0,
+      "after_retrace": 0.0
+    },
+    {
+      "id": "area-11916-main",
+      "removed_edges": 0,
+      "before_km": 99.1,
+      "after_km": 99.1,
+      "before_min": 121,
+      "after_min": 121,
+      "before_retrace": 0.0,
+      "after_retrace": 0.0
+    },
+    {
+      "id": "area-12167-main",
+      "removed_edges": 0,
+      "before_km": 106.3,
+      "after_km": 106.3,
+      "before_min": 134,
+      "after_min": 134,
+      "before_retrace": 0.18080903104421447,
+      "after_retrace": 0.18080903104421447
+    },
+    {
+      "id": "area-12113-main",
+      "removed_edges": 2,
+      "before_km": 80.8,
+      "after_km": 80.6,
+      "before_min": 97,
+      "after_min": 97,
+      "before_retrace": 0.422029702970297,
+      "after_retrace": 0.4247085090548251
+    },
+    {
+      "id": "area-12000-main",
+      "removed_edges": 6,
+      "before_km": 75.8,
+      "after_km": 74.8,
+      "before_min": 90,
+      "after_min": 89,
+      "before_retrace": 0.02666314677930306,
+      "after_retrace": 0.01710772520716386
+    },
+    {
+      "id": "area-12194-main",
+      "removed_edges": 4,
+      "before_km": 86.0,
+      "after_km": 85.0,
+      "before_min": 95,
+      "after_min": 94,
+      "before_retrace": 0.1510925151092515,
+      "after_retrace": 0.1423529411764706
+    },
+    {
+      "id": "area-11916-alt-1",
+      "removed_edges": 4,
+      "before_km": 86.1,
+      "after_km": 85.7,
+      "before_min": 103,
+      "after_min": 103,
+      "before_retrace": 0.003947062920826561,
+      "after_retrace": 0.0
+    },
+    {
+      "id": "area-12000-alt-1",
+      "removed_edges": 18,
+      "before_km": 83.4,
+      "after_km": 81.5,
+      "before_min": 116,
+      "after_min": 114,
+      "before_retrace": 0.03238963531669865,
+      "after_retrace": 0.011528084375766495
+    },
+    {
+      "id": "area-12090-main",
+      "removed_edges": 0,
+      "before_km": 63.9,
+      "after_km": 63.9,
+      "before_min": 75,
+      "after_min": 75,
+      "before_retrace": 0.4375586854460094,
+      "after_retrace": 0.4375586854460094
+    },
+    {
+      "id": "area-10274-main",
+      "removed_edges": 0,
+      "before_km": 71.1,
+      "after_km": 71.1,
+      "before_min": 92,
+      "after_min": 92,
+      "before_retrace": 0.00843407365757661,
+      "after_retrace": 0.00843407365757661
+    },
+    {
+      "id": "area-10177-main",
+      "removed_edges": 0,
+      "before_km": 56.7,
+      "after_km": 56.7,
+      "before_min": 71,
+      "after_min": 71,
+      "before_retrace": 0.0,
+      "after_retrace": 0.0
+    }
+  ]
+}

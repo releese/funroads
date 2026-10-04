@@ -1,0 +1,884 @@
+[
+  {
+    "id": "area-11916-alt-1",
+    "selectionRetained": true,
+    "result": {
+      "bodyFits": true,
+      "bounds": {
+        "bottom": 1093,
+        "height": 898,
+        "left": 1298,
+        "right": 1716,
+        "top": 195,
+        "width": 418
+      },
+      "detailFits": true,
+      "navigateVisible": true,
+      "route": "circuit:area-11916-alt-1",
+      "target": {
+        "bottom": 1081,
+        "height": 44,
+        "left": 1314,
+        "right": 1700,
+        "top": 1037,
+        "width": 386
+      },
+      "targetBlank": true,
+      "viewport": [
+        1789,
+        1288
+      ],
+      "waypoints": 9
+    },
+    "family": "circuit",
+    "country": "nl",
+    "type": null
+  },
+  {
+    "id": "sprint-c9f8764da9c0621b",
+    "selectionRetained": true,
+    "result": {
+      "bodyFits": true,
+      "bounds": {
+        "bottom": 1093,
+        "height": 898,
+        "left": 1298,
+        "right": 1716,
+        "top": 195,
+        "width": 418
+      },
+      "detailFits": true,
+      "navigateVisible": true,
+      "route": "sprint:sprint-c9f8764da9c0621b",
+      "target": {
+        "bottom": 1081,
+        "height": 44,
+        "left": 1314,
+        "right": 1700,
+        "top": 1037,
+        "width": 386
+      },
+      "targetBlank": true,
+      "viewport": [
+        1789,
+        1288
+      ],
+      "waypoints": 7
+    },
+    "family": "sprint",
+    "country": "nl",
+    "type": null
+  },
+  {
+    "id": "linked-d31024d02006b5c6",
+    "selectionRetained": true,
+    "result": {
+      "bodyFits": true,
+      "bounds": {
+        "bottom": 1093,
+        "height": 898,
+        "left": 1298,
+        "right": 1716,
+        "top": 195,
+        "width": 418
+      },
+      "detailFits": true,
+      "navigateVisible": true,
+      "route": "linked:linked-d31024d02006b5c6",
+      "target": {
+        "bottom": 1081,
+        "height": 44,
+        "left": 1314,
+        "right": 1700,
+        "top": 1037,
+        "width": 386
+      },
+      "targetBlank": true,
+      "viewport": [
+        1789,
+        1288
+      ],
+      "waypoints": 7
+    },
+    "family": "linked",
+    "country": "nl",
+    "type": "open"
+  },
+  {
+    "id": "linked-e3d737dfece3c4e5",
+    "selectionRetained": true,
+    "result": {
+      "bodyFits": true,
+      "bounds": {
+        "bottom": 1093,
+        "height": 898,
+        "left": 1298,
+        "right": 1716,
+        "top": 195,
+        "width": 418
+      },
+      "detailFits": true,
+      "navigateVisible": true,
+      "route": "linked:linked-e3d737dfece3c4e5",
+      "target": {
+        "bottom": 1081,
+        "height": 44,
+        "left": 1314,
+        "right": 1700,
+        "top": 1037,
+        "width": 386
+      },
+      "targetBlank": true,
+      "viewport": [
+        1789,
+        1288
+      ],
+      "waypoints": 2
+    },
+    "family": "linked",
+    "country": "nl",
+    "type": "circuit"
+  },
+  {
+    "id": "area-044-main",
+    "selectionRetained": true,
+    "result": {
+      "bodyFits": true,
+      "bounds": {
+        "bottom": 1093,
+        "height": 898,
+        "left": 1298,
+        "right": 1716,
+        "top": 195,
+        "width": 418
+      },
+      "detailFits": true,
+      "navigateVisible": true,
+      "route": "ee:circuit:area-044-main",
+      "target": {
+        "bottom": 1081,
+        "height": 44,
+        "left": 1314,
+        "right": 1700,
+        "top": 1037,
+        "width": 386
+      },
+      "targetBlank": true,
+      "viewport": [
+        1789,
+        1288
+      ],
+      "waypoints": 9
+    },
+    "family": "circuit",
+    "country": "ee",
+    "type": null
+  },
+  {
+    "id": "sprint-29f9886a43ac3c98",
+    "selectionRetained": true,
+    "result": {
+      "bodyFits": true,
+      "bounds": {
+        "bottom": 1093,
+        "height": 898,
+        "left": 1298,
+        "right": 1716,
+        "top": 195,
+        "width": 418
+      },
+      "detailFits": true,
+      "navigateVisible": true,
+      "route": "ee:sprint:sprint-29f9886a43ac3c98",
+      "target": {
+        "bottom": 1081,
+        "height": 44,
+        "left": 1314,
+        "right": 1700,
+        "top": 1037,
+        "width": 386
+      },
+      "targetBlank": true,
+      "viewport": [
+        1789,
+        1288
+      ],
+      "waypoints": 1
+    },
+    "family": "sprint",
+    "country": "ee",
+    "type": null
+  },
+  {
+    "id": "linked-56e250e9318465b2",
+    "selectionRetained": true,
+    "result": {
+      "bodyFits": true,
+      "bounds": {
+        "bottom": 1093,
+        "height": 898,
+        "left": 1298,
+        "right": 1716,
+        "top": 195,
+        "width": 418
+      },
+      "detailFits": true,
+      "navigateVisible": true,
+      "route": "ee:linked:linked-56e250e9318465b2",
+      "target": {
+        "bottom": 1081,
+        "height": 44,
+        "left": 1314,
+        "right": 1700,
+        "top": 1037,
+        "width": 386
+      },
+      "targetBlank": true,
+      "viewport": [
+        1789,
+        1288
+      ],
+      "waypoints": 9
+    },
+    "family": "linked",
+    "country": "ee",
+    "type": "open"
+  },
+  {
+    "id": "linked-bdddaa7bcc70e85a",
+    "selectionRetained": true,
+    "result": {
+      "bodyFits": true,
+      "bounds": {
+        "bottom": 1093,
+        "height": 898,
+        "left": 1298,
+        "right": 1716,
+        "top": 195,
+        "width": 418
+      },
+      "detailFits": true,
+      "navigateVisible": true,
+      "route": "ee:linked:linked-bdddaa7bcc70e85a",
+      "target": {
+        "bottom": 1081,
+        "height": 44,
+        "left": 1314,
+        "right": 1700,
+        "top": 1037,
+        "width": 386
+      },
+      "targetBlank": true,
+      "viewport": [
+        1789,
+        1288
+      ],
+      "waypoints": 9
+    },
+    "family": "linked",
+    "country": "ee",
+    "type": "circuit"
+  },
+  {
+    "id": "area-11916-alt-1",
+    "selectionRetained": true,
+    "result": {
+      "bodyFits": true,
+      "bounds": {
+        "bottom": 755,
+        "height": 742,
+        "left": 625.328125,
+        "right": 951,
+        "top": 13,
+        "width": 325.671875
+      },
+      "detailFits": true,
+      "navigateVisible": true,
+      "route": "circuit:area-11916-alt-1",
+      "target": {
+        "bottom": 743,
+        "height": 44,
+        "left": 641.328125,
+        "right": 935,
+        "top": 699,
+        "width": 293.671875
+      },
+      "targetBlank": true,
+      "viewport": [
+        1024,
+        768
+      ],
+      "waypoints": 9
+    },
+    "family": "circuit",
+    "country": "nl",
+    "type": null
+  },
+  {
+    "id": "sprint-c9f8764da9c0621b",
+    "selectionRetained": true,
+    "result": {
+      "bodyFits": true,
+      "bounds": {
+        "bottom": 755,
+        "height": 742,
+        "left": 625.328125,
+        "right": 951,
+        "top": 13,
+        "width": 325.671875
+      },
+      "detailFits": true,
+      "navigateVisible": true,
+      "route": "sprint:sprint-c9f8764da9c0621b",
+      "target": {
+        "bottom": 743,
+        "height": 44,
+        "left": 641.328125,
+        "right": 935,
+        "top": 699,
+        "width": 293.671875
+      },
+      "targetBlank": true,
+      "viewport": [
+        1024,
+        768
+      ],
+      "waypoints": 7
+    },
+    "family": "sprint",
+    "country": "nl",
+    "type": null
+  },
+  {
+    "id": "linked-d31024d02006b5c6",
+    "selectionRetained": true,
+    "result": {
+      "bodyFits": true,
+      "bounds": {
+        "bottom": 755,
+        "height": 742,
+        "left": 625.328125,
+        "right": 951,
+        "top": 13,
+        "width": 325.671875
+      },
+      "detailFits": true,
+      "navigateVisible": true,
+      "route": "linked:linked-d31024d02006b5c6",
+      "target": {
+        "bottom": 743,
+        "height": 44,
+        "left": 641.328125,
+        "right": 935,
+        "top": 699,
+        "width": 293.671875
+      },
+      "targetBlank": true,
+      "viewport": [
+        1024,
+        768
+      ],
+      "waypoints": 7
+    },
+    "family": "linked",
+    "country": "nl",
+    "type": "open"
+  },
+  {
+    "id": "linked-e3d737dfece3c4e5",
+    "selectionRetained": true,
+    "result": {
+      "bodyFits": true,
+      "bounds": {
+        "bottom": 755,
+        "height": 742,
+        "left": 625.328125,
+        "right": 951,
+        "top": 13,
+        "width": 325.671875
+      },
+      "detailFits": true,
+      "navigateVisible": true,
+      "route": "linked:linked-e3d737dfece3c4e5",
+      "target": {
+        "bottom": 743,
+        "height": 44,
+        "left": 641.328125,
+        "right": 935,
+        "top": 699,
+        "width": 293.671875
+      },
+      "targetBlank": true,
+      "viewport": [
+        1024,
+        768
+      ],
+      "waypoints": 2
+    },
+    "family": "linked",
+    "country": "nl",
+    "type": "circuit"
+  },
+  {
+    "id": "area-044-main",
+    "selectionRetained": true,
+    "result": {
+      "bodyFits": true,
+      "bounds": {
+        "bottom": 755,
+        "height": 742,
+        "left": 625.328125,
+        "right": 951,
+        "top": 13,
+        "width": 325.671875
+      },
+      "detailFits": true,
+      "navigateVisible": true,
+      "route": "ee:circuit:area-044-main",
+      "target": {
+        "bottom": 743,
+        "height": 44,
+        "left": 641.328125,
+        "right": 935,
+        "top": 699,
+        "width": 293.671875
+      },
+      "targetBlank": true,
+      "viewport": [
+        1024,
+        768
+      ],
+      "waypoints": 9
+    },
+    "family": "circuit",
+    "country": "ee",
+    "type": null
+  },
+  {
+    "id": "sprint-29f9886a43ac3c98",
+    "selectionRetained": true,
+    "result": {
+      "bodyFits": true,
+      "bounds": {
+        "bottom": 755,
+        "height": 742,
+        "left": 625.328125,
+        "right": 951,
+        "top": 13,
+        "width": 325.671875
+      },
+      "detailFits": true,
+      "navigateVisible": true,
+      "route": "ee:sprint:sprint-29f9886a43ac3c98",
+      "target": {
+        "bottom": 743,
+        "height": 44,
+        "left": 641.328125,
+        "right": 935,
+        "top": 699,
+        "width": 293.671875
+      },
+      "targetBlank": true,
+      "viewport": [
+        1024,
+        768
+      ],
+      "waypoints": 1
+    },
+    "family": "sprint",
+    "country": "ee",
+    "type": null
+  },
+  {
+    "id": "linked-56e250e9318465b2",
+    "selectionRetained": true,
+    "result": {
+      "bodyFits": true,
+      "bounds": {
+        "bottom": 755,
+        "height": 742,
+        "left": 625.328125,
+        "right": 951,
+        "top": 13,
+        "width": 325.671875
+      },
+      "detailFits": true,
+      "navigateVisible": true,
+      "route": "ee:linked:linked-56e250e9318465b2",
+      "target": {
+        "bottom": 743,
+        "height": 44,
+        "left": 641.328125,
+        "right": 935,
+        "top": 699,
+        "width": 293.671875
+      },
+      "targetBlank": true,
+      "viewport": [
+        1024,
+        768
+      ],
+      "waypoints": 9
+    },
+    "family": "linked",
+    "country": "ee",
+    "type": "open"
+  },
+  {
+    "id": "linked-bdddaa7bcc70e85a",
+    "selectionRetained": true,
+    "result": {
+      "bodyFits": true,
+      "bounds": {
+        "bottom": 755,
+        "height": 742,
+        "left": 625.328125,
+        "right": 951,
+        "top": 13,
+        "width": 325.671875
+      },
+      "detailFits": true,
+      "navigateVisible": true,
+      "route": "ee:linked:linked-bdddaa7bcc70e85a",
+      "target": {
+        "bottom": 743,
+        "height": 44,
+        "left": 641.328125,
+        "right": 935,
+        "top": 699,
+        "width": 293.671875
+      },
+      "targetBlank": true,
+      "viewport": [
+        1024,
+        768
+      ],
+      "waypoints": 9
+    },
+    "family": "linked",
+    "country": "ee",
+    "type": "circuit"
+  },
+  {
+    "id": "area-11916-alt-1",
+    "selectionRetained": true,
+    "result": {
+      "bodyFits": true,
+      "bounds": {
+        "bottom": 832,
+        "height": 820,
+        "left": 12,
+        "right": 378,
+        "top": 12,
+        "width": 366
+      },
+      "detailFits": true,
+      "navigateVisible": true,
+      "route": "circuit:area-11916-alt-1",
+      "target": {
+        "bottom": 820,
+        "height": 44,
+        "left": 28,
+        "right": 362,
+        "top": 776,
+        "width": 334
+      },
+      "targetBlank": true,
+      "viewport": [
+        390,
+        844
+      ],
+      "waypoints": 3
+    },
+    "family": "circuit",
+    "country": "nl",
+    "type": null
+  },
+  {
+    "id": "sprint-c9f8764da9c0621b",
+    "selectionRetained": true,
+    "result": {
+      "bodyFits": true,
+      "bounds": {
+        "bottom": 832,
+        "height": 820,
+        "left": 12,
+        "right": 378,
+        "top": 12,
+        "width": 366
+      },
+      "detailFits": true,
+      "navigateVisible": true,
+      "route": "sprint:sprint-c9f8764da9c0621b",
+      "target": {
+        "bottom": 820,
+        "height": 44,
+        "left": 28,
+        "right": 362,
+        "top": 776,
+        "width": 334
+      },
+      "targetBlank": true,
+      "viewport": [
+        390,
+        844
+      ],
+      "waypoints": 3
+    },
+    "family": "sprint",
+    "country": "nl",
+    "type": null
+  },
+  {
+    "id": "linked-d31024d02006b5c6",
+    "selectionRetained": true,
+    "result": {
+      "bodyFits": true,
+      "bounds": {
+        "bottom": 832,
+        "height": 820,
+        "left": 12,
+        "right": 378,
+        "top": 12,
+        "width": 366
+      },
+      "detailFits": true,
+      "navigateVisible": true,
+      "route": "linked:linked-d31024d02006b5c6",
+      "target": {
+        "bottom": 820,
+        "height": 44,
+        "left": 28,
+        "right": 362,
+        "top": 776,
+        "width": 334
+      },
+      "targetBlank": true,
+      "viewport": [
+        390,
+        844
+      ],
+      "waypoints": 3
+    },
+    "family": "linked",
+    "country": "nl",
+    "type": "open"
+  },
+  {
+    "id": "linked-e3d737dfece3c4e5",
+    "selectionRetained": true,
+    "result": {
+      "bodyFits": true,
+      "bounds": {
+        "bottom": 832,
+        "height": 820,
+        "left": 12,
+        "right": 378,
+        "top": 12,
+        "width": 366
+      },
+      "detailFits": true,
+      "navigateVisible": true,
+      "route": "linked:linked-e3d737dfece3c4e5",
+      "target": {
+        "bottom": 820,
+        "height": 44,
+        "left": 28,
+        "right": 362,
+        "top": 776,
+        "width": 334
+      },
+      "targetBlank": true,
+      "viewport": [
+        390,
+        844
+      ],
+      "waypoints": 2
+    },
+    "family": "linked",
+    "country": "nl",
+    "type": "circuit"
+  },
+  {
+    "id": "area-044-main",
+    "selectionRetained": true,
+    "result": {
+      "bodyFits": true,
+      "bounds": {
+        "bottom": 832,
+        "height": 820,
+        "left": 12,
+        "right": 378,
+        "top": 12,
+        "width": 366
+      },
+      "detailFits": true,
+      "navigateVisible": true,
+      "route": "ee:circuit:area-044-main",
+      "target": {
+        "bottom": 820,
+        "height": 44,
+        "left": 28,
+        "right": 362,
+        "top": 776,
+        "width": 334
+      },
+      "targetBlank": true,
+      "viewport": [
+        390,
+        844
+      ],
+      "waypoints": 3
+    },
+    "family": "circuit",
+    "country": "ee",
+    "type": null
+  },
+  {
+    "id": "sprint-29f9886a43ac3c98",
+    "selectionRetained": true,
+    "result": {
+      "bodyFits": true,
+      "bounds": {
+        "bottom": 832,
+        "height": 820,
+        "left": 12,
+        "right": 378,
+        "top": 12,
+        "width": 366
+      },
+      "detailFits": true,
+      "navigateVisible": true,
+      "route": "ee:sprint:sprint-29f9886a43ac3c98",
+      "target": {
+        "bottom": 820,
+        "height": 44,
+        "left": 28,
+        "right": 362,
+        "top": 776,
+        "width": 334
+      },
+      "targetBlank": true,
+      "viewport": [
+        390,
+        844
+      ],
+      "waypoints": 1
+    },
+    "family": "sprint",
+    "country": "ee",
+    "type": null
+  },
+  {
+    "id": "linked-56e250e9318465b2",
+    "selectionRetained": true,
+    "result": {
+      "bodyFits": true,
+      "bounds": {
+        "bottom": 832,
+        "height": 820,
+        "left": 12,
+        "right": 378,
+        "top": 12,
+        "width": 366
+      },
+      "detailFits": true,
+      "navigateVisible": true,
+      "route": "ee:linked:linked-56e250e9318465b2",
+      "target": {
+        "bottom": 820,
+        "height": 44,
+        "left": 28,
+        "right": 362,
+        "top": 776,
+        "width": 334
+      },
+      "targetBlank": true,
+      "viewport": [
+        390,
+        844
+      ],
+      "waypoints": 3
+    },
+    "family": "linked",
+    "country": "ee",
+    "type": "open"
+  },
+  {
+    "id": "linked-bdddaa7bcc70e85a",
+    "selectionRetained": true,
+    "result": {
+      "bodyFits": true,
+      "bounds": {
+        "bottom": 832,
+        "height": 820,
+        "left": 12,
+        "right": 378,
+        "top": 12,
+        "width": 366
+      },
+      "detailFits": true,
+      "navigateVisible": true,
+      "route": "ee:linked:linked-bdddaa7bcc70e85a",
+      "target": {
+        "bottom": 820,
+        "height": 44,
+        "left": 28,
+        "right": 362,
+        "top": 776,
+        "width": 334
+      },
+      "targetBlank": true,
+      "viewport": [
+        390,
+        844
+      ],
+      "waypoints": 3
+    },
+    "family": "linked",
+    "country": "ee",
+    "type": "circuit"
+  },
+  {
+    "hover": {
+      "compactFill": true,
+      "noButtonShadow": true,
+      "noOverlap": true,
+      "transparentTarget": true
+    },
+    "focusReturned": true,
+    "viewport": [
+      320,
+      740
+    ],
+    "country": "nl",
+    "menu": {
+      "fits": true,
+      "height": 44,
+      "leftAligned": true,
+      "smaller": true,
+      "stacked": true
+    }
+  },
+  {
+    "hover": {
+      "compactFill": true,
+      "noButtonShadow": true,
+      "noOverlap": true,
+      "transparentTarget": true
+    },
+    "focusReturned": true,
+    "viewport": [
+      320,
+      740
+    ],
+    "country": "ee",
+    "menu": {
+      "fits": true,
+      "height": 44,
+      "leftAligned": true,
+      "smaller": true,
+      "stacked": true
+    }
+  }
+]

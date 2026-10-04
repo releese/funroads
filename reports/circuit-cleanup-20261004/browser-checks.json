@@ -1,0 +1,23 @@
+[
+  {
+    "displayedKm": "71.8",
+    "hash": "#route=ee%3Acircuit%3Aarea-041-main&detail=1",
+    "intermediatePoints": 9,
+    "urlLength": 462,
+    "wholeCircuit": true
+  },
+  {
+    "displayedKm": "45.6",
+    "hash": "#route=ee%3Acircuit%3Aarea-041-alt-1&detail=1",
+    "intermediatePoints": 9,
+    "urlLength": 427,
+    "wholeCircuit": true
+  },
+  {
+    "displayedKm": "74.8",
+    "hash": "#route=circuit%3Aarea-12000-main&detail=1",
+    "intermediatePoints": 9,
+    "urlLength": 400,
+    "wholeCircuit": true
+  }
+]

@@ -1,0 +1,67 @@
+{
+  "routeKey": "ee:circuit:area-041-main",
+  "name": "Viljandi → Rõngu Circuit",
+  "km": 72.2,
+  "waypointCount": 9,
+  "vertexIndices": [
+    0,
+    94,
+    154,
+    191,
+    281,
+    383,
+    467,
+    553,
+    650,
+    702,
+    763
+  ],
+  "points": [
+    [
+      26.087747,
+      58.088046
+    ],
+    [
+      26.230967,
+      58.146327
+    ],
+    [
+      26.207702,
+      58.190918
+    ],
+    [
+      26.279822,
+      58.189868
+    ],
+    [
+      26.345321,
+      58.117751
+    ],
+    [
+      26.291138,
+      58.063632
+    ],
+    [
+      26.349313,
+      58.029432
+    ],
+    [
+      26.269038,
+      57.998881
+    ],
+    [
+      26.17275,
+      58.012526
+    ],
+    [
+      26.193572,
+      58.054658
+    ],
+    [
+      26.087747,
+      58.088046
+    ]
+  ],
+  "href": "https://www.google.com/maps/dir/?api=1&origin=58.088046%2C26.087747&destination=58.088046%2C26.087747&travelmode=driving&waypoints=58.146327%2C26.230967%7C58.190918%2C26.207702%7C58.189868%2C26.279822%7C58.117751%2C26.345321%7C58.063632%2C26.291138%7C58.029432%2C26.349313%7C57.998881%2C26.269038%7C58.012526%2C26.17275%7C58.054658%2C26.193572",
+  "note": "Controlled whole-loop trial: only Kuigatsi waypoint changed from source vertex 660 to 650, roughly 588 m earlier along the source line. Nine intermediate points, no splits. Outcome not yet accepted."
+}

@@ -1,0 +1,614 @@
+[
+  {
+    "body": {
+      "scrollWidth": 274,
+      "width": 274
+    },
+    "browse": {
+      "bottom": 556,
+      "height": 352.15625,
+      "left": 12,
+      "right": 308,
+      "top": 203.84375,
+      "width": 296,
+      "x": 12,
+      "y": 203.84375
+    },
+    "controls": [
+      {
+        "label": "Add to favorites",
+        "rect": {
+          "bottom": 68,
+          "height": 44,
+          "left": 200,
+          "right": 244,
+          "top": 24,
+          "width": 44,
+          "x": 200,
+          "y": 24
+        }
+      },
+      {
+        "label": "Close details",
+        "rect": {
+          "bottom": 68,
+          "height": 44,
+          "left": 248,
+          "right": 292,
+          "top": 24,
+          "width": 44,
+          "x": 248,
+          "y": 24
+        }
+      }
+    ],
+    "detail": {
+      "bottom": 556,
+      "height": 544,
+      "left": 12,
+      "right": 308,
+      "top": 12,
+      "width": 296,
+      "x": 12,
+      "y": 12
+    },
+    "footer": {
+      "bottom": 556,
+      "height": 69,
+      "left": 12,
+      "right": 308,
+      "top": 487,
+      "width": 296,
+      "x": 12,
+      "y": 487
+    },
+    "issues": [],
+    "navigate": {
+      "bottom": 544,
+      "height": 44,
+      "left": 28,
+      "right": 292,
+      "top": 500,
+      "width": 264,
+      "x": 28,
+      "y": 500
+    },
+    "title": "Viljandi → Rõngu Circuit",
+    "url": "http://127.0.0.1:5174/?country=ee#route=ee%3Acircuit%3Aarea-041-main&detail=1",
+    "viewport": [
+      320,
+      568
+    ]
+  },
+  {
+    "body": {
+      "scrollWidth": 329,
+      "width": 329
+    },
+    "browse": {
+      "bottom": 800,
+      "height": 503.4375,
+      "left": 12,
+      "right": 363,
+      "top": 296.5625,
+      "width": 351,
+      "x": 12,
+      "y": 296.5625
+    },
+    "controls": [
+      {
+        "label": "Add to favorites",
+        "rect": {
+          "bottom": 68,
+          "height": 44,
+          "left": 255,
+          "right": 299,
+          "top": 24,
+          "width": 44,
+          "x": 255,
+          "y": 24
+        }
+      },
+      {
+        "label": "Close details",
+        "rect": {
+          "bottom": 68,
+          "height": 44,
+          "left": 303,
+          "right": 347,
+          "top": 24,
+          "width": 44,
+          "x": 303,
+          "y": 24
+        }
+      }
+    ],
+    "detail": {
+      "bottom": 800,
+      "height": 788,
+      "left": 12,
+      "right": 363,
+      "top": 12,
+      "width": 351,
+      "x": 12,
+      "y": 12
+    },
+    "footer": {
+      "bottom": 800,
+      "height": 69,
+      "left": 12,
+      "right": 363,
+      "top": 731,
+      "width": 351,
+      "x": 12,
+      "y": 731
+    },
+    "issues": [],
+    "navigate": {
+      "bottom": 788,
+      "height": 44,
+      "left": 28,
+      "right": 347,
+      "top": 744,
+      "width": 319,
+      "x": 28,
+      "y": 744
+    },
+    "title": "Viljandi → Rõngu Circuit",
+    "url": "http://127.0.0.1:5174/?country=ee#route=ee%3Acircuit%3Aarea-041-main&detail=1",
+    "viewport": [
+      375,
+      812
+    ]
+  },
+  {
+    "body": {
+      "scrollWidth": 296,
+      "width": 296
+    },
+    "browse": null,
+    "controls": [
+      {
+        "label": "Add to favorites",
+        "rect": {
+          "bottom": 119,
+          "height": 44,
+          "left": 587,
+          "right": 631,
+          "top": 75,
+          "width": 44,
+          "x": 587,
+          "y": 75
+        }
+      },
+      {
+        "label": "Close details",
+        "rect": {
+          "bottom": 119,
+          "height": 44,
+          "left": 635,
+          "right": 679,
+          "top": 75,
+          "width": 44,
+          "x": 635,
+          "y": 75
+        }
+      }
+    ],
+    "detail": {
+      "bottom": 961,
+      "height": 898,
+      "left": 377,
+      "right": 695,
+      "top": 63,
+      "width": 318,
+      "x": 377,
+      "y": 63
+    },
+    "footer": {
+      "bottom": 961,
+      "height": 69,
+      "left": 377,
+      "right": 695,
+      "top": 892,
+      "width": 318,
+      "x": 377,
+      "y": 892
+    },
+    "issues": [],
+    "navigate": {
+      "bottom": 949,
+      "height": 44,
+      "left": 393,
+      "right": 679,
+      "top": 905,
+      "width": 286,
+      "x": 393,
+      "y": 905
+    },
+    "title": "Viljandi → Rõngu Circuit",
+    "url": "http://127.0.0.1:5174/?country=ee#route=ee%3Acircuit%3Aarea-041-main&detail=1",
+    "viewport": [
+      768,
+      1024
+    ]
+  },
+  {
+    "body": {
+      "scrollWidth": 304,
+      "width": 304
+    },
+    "browse": null,
+    "controls": [
+      {
+        "label": "Add to favorites",
+        "rect": {
+          "bottom": 69,
+          "height": 44,
+          "left": 843,
+          "right": 887,
+          "top": 25,
+          "width": 44,
+          "x": 843,
+          "y": 25
+        }
+      },
+      {
+        "label": "Close details",
+        "rect": {
+          "bottom": 69,
+          "height": 44,
+          "left": 891,
+          "right": 935,
+          "top": 25,
+          "width": 44,
+          "x": 891,
+          "y": 25
+        }
+      }
+    ],
+    "detail": {
+      "bottom": 755,
+      "height": 742,
+      "left": 625.328125,
+      "right": 951,
+      "top": 13,
+      "width": 325.671875,
+      "x": 625.328125,
+      "y": 13
+    },
+    "footer": {
+      "bottom": 755,
+      "height": 69,
+      "left": 625.328125,
+      "right": 951,
+      "top": 686,
+      "width": 325.671875,
+      "x": 625.328125,
+      "y": 686
+    },
+    "issues": [],
+    "navigate": {
+      "bottom": 743,
+      "height": 44,
+      "left": 641.328125,
+      "right": 935,
+      "top": 699,
+      "width": 293.671875,
+      "x": 641.328125,
+      "y": 699
+    },
+    "title": "Viljandi → Rõngu Circuit",
+    "url": "http://127.0.0.1:5174/?country=ee#route=ee%3Acircuit%3Aarea-041-main&detail=1",
+    "viewport": [
+      1024,
+      768
+    ]
+  },
+  {
+    "body": {
+      "scrollWidth": 386,
+      "width": 386
+    },
+    "browse": null,
+    "controls": [
+      {
+        "label": "Add to favorites",
+        "rect": {
+          "bottom": 69,
+          "height": 44,
+          "left": 1099,
+          "right": 1143,
+          "top": 25,
+          "width": 44,
+          "x": 1099,
+          "y": 25
+        }
+      },
+      {
+        "label": "Close details",
+        "rect": {
+          "bottom": 69,
+          "height": 44,
+          "left": 1147,
+          "right": 1191,
+          "top": 25,
+          "width": 44,
+          "x": 1147,
+          "y": 25
+        }
+      }
+    ],
+    "detail": {
+      "bottom": 787,
+      "height": 774,
+      "left": 799.40625,
+      "right": 1207,
+      "top": 13,
+      "width": 407.59375,
+      "x": 799.40625,
+      "y": 13
+    },
+    "footer": {
+      "bottom": 787,
+      "height": 69,
+      "left": 799.40625,
+      "right": 1207,
+      "top": 718,
+      "width": 407.59375,
+      "x": 799.40625,
+      "y": 718
+    },
+    "issues": [],
+    "navigate": {
+      "bottom": 775,
+      "height": 44,
+      "left": 815.40625,
+      "right": 1191,
+      "top": 731,
+      "width": 375.59375,
+      "x": 815.40625,
+      "y": 731
+    },
+    "title": "Viljandi → Rõngu Circuit",
+    "url": "http://127.0.0.1:5174/?country=ee#route=ee%3Acircuit%3Aarea-041-main&detail=1",
+    "viewport": [
+      1280,
+      800
+    ]
+  },
+  {
+    "body": {
+      "scrollWidth": 396,
+      "width": 396
+    },
+    "browse": {
+      "bottom": 756,
+      "height": 692,
+      "left": 12,
+      "right": 432,
+      "top": 64,
+      "width": 420,
+      "x": 12,
+      "y": 64
+    },
+    "controls": [
+      {
+        "label": "Add to favorites",
+        "rect": {
+          "bottom": 69,
+          "height": 44,
+          "left": 1185,
+          "right": 1229,
+          "top": 25,
+          "width": 44,
+          "x": 1185,
+          "y": 25
+        }
+      },
+      {
+        "label": "Close details",
+        "rect": {
+          "bottom": 69,
+          "height": 44,
+          "left": 1233,
+          "right": 1277,
+          "top": 25,
+          "width": 44,
+          "x": 1233,
+          "y": 25
+        }
+      }
+    ],
+    "detail": {
+      "bottom": 755,
+      "height": 742,
+      "left": 875,
+      "right": 1293,
+      "top": 13,
+      "width": 418,
+      "x": 875,
+      "y": 13
+    },
+    "footer": {
+      "bottom": 755,
+      "height": 69,
+      "left": 875,
+      "right": 1293,
+      "top": 686,
+      "width": 418,
+      "x": 875,
+      "y": 686
+    },
+    "issues": [],
+    "navigate": {
+      "bottom": 743,
+      "height": 44,
+      "left": 891,
+      "right": 1277,
+      "top": 699,
+      "width": 386,
+      "x": 891,
+      "y": 699
+    },
+    "title": "Viljandi → Rõngu Circuit",
+    "url": "http://127.0.0.1:5174/?country=ee#route=ee%3Acircuit%3Aarea-041-main&detail=1",
+    "viewport": [
+      1366,
+      768
+    ]
+  },
+  {
+    "body": {
+      "scrollWidth": 396,
+      "width": 396
+    },
+    "browse": {
+      "bottom": 1068,
+      "height": 832,
+      "left": 12,
+      "right": 432,
+      "top": 236,
+      "width": 420,
+      "x": 12,
+      "y": 236
+    },
+    "controls": [
+      {
+        "label": "Add to favorites",
+        "rect": {
+          "bottom": 147,
+          "height": 44,
+          "left": 1739,
+          "right": 1783,
+          "top": 103,
+          "width": 44,
+          "x": 1739,
+          "y": 103
+        }
+      },
+      {
+        "label": "Close details",
+        "rect": {
+          "bottom": 147,
+          "height": 44,
+          "left": 1787,
+          "right": 1831,
+          "top": 103,
+          "width": 44,
+          "x": 1787,
+          "y": 103
+        }
+      }
+    ],
+    "detail": {
+      "bottom": 989,
+      "height": 898,
+      "left": 1429,
+      "right": 1847,
+      "top": 91,
+      "width": 418,
+      "x": 1429,
+      "y": 91
+    },
+    "footer": {
+      "bottom": 989,
+      "height": 69,
+      "left": 1429,
+      "right": 1847,
+      "top": 920,
+      "width": 418,
+      "x": 1429,
+      "y": 920
+    },
+    "issues": [],
+    "navigate": {
+      "bottom": 977,
+      "height": 44,
+      "left": 1445,
+      "right": 1831,
+      "top": 933,
+      "width": 386,
+      "x": 1445,
+      "y": 933
+    },
+    "title": "Viljandi → Rõngu Circuit",
+    "url": "http://127.0.0.1:5174/?country=ee#route=ee%3Acircuit%3Aarea-041-main&detail=1",
+    "viewport": [
+      1920,
+      1080
+    ]
+  },
+  {
+    "body": {
+      "scrollWidth": 296,
+      "width": 296
+    },
+    "browse": null,
+    "controls": [
+      {
+        "label": "Add to favorites",
+        "rect": {
+          "bottom": 69,
+          "height": 44,
+          "left": 631,
+          "right": 675,
+          "top": 25,
+          "width": 44,
+          "x": 631,
+          "y": 25
+        }
+      },
+      {
+        "label": "Close details",
+        "rect": {
+          "bottom": 69,
+          "height": 44,
+          "left": 679,
+          "right": 723,
+          "top": 25,
+          "width": 44,
+          "x": 679,
+          "y": 25
+        }
+      }
+    ],
+    "detail": {
+      "bottom": 362,
+      "height": 349,
+      "left": 421,
+      "right": 739,
+      "top": 13,
+      "width": 318,
+      "x": 421,
+      "y": 13
+    },
+    "footer": {
+      "bottom": 362,
+      "height": 69,
+      "left": 421,
+      "right": 739,
+      "top": 293,
+      "width": 318,
+      "x": 421,
+      "y": 293
+    },
+    "issues": [],
+    "navigate": {
+      "bottom": 350,
+      "height": 44,
+      "left": 437,
+      "right": 723,
+      "top": 306,
+      "width": 286,
+      "x": 437,
+      "y": 306
+    },
+    "title": "Viljandi → Rõngu Circuit",
+    "url": "http://127.0.0.1:5174/?country=ee#route=ee%3Acircuit%3Aarea-041-main&detail=1",
+    "viewport": [
+      812,
+      375
+    ]
+  }
+]

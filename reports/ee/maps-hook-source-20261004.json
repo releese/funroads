@@ -1,0 +1,31 @@
+{
+  "routeKey": "ee:circuit:area-041-main",
+  "sectionVertices": [
+    553,
+    660
+  ],
+  "hookVertices": [
+    591,
+    592,
+    593
+  ],
+  "hookCoordinates": [
+    [
+      26.222903,
+      58.008743
+    ],
+    [
+      26.2227,
+      58.010467
+    ],
+    [
+      26.222903,
+      58.008743
+    ]
+  ],
+  "oneWaySpurKm": 0.1920726804775217,
+  "totalSpurKm": 0.3841453609550434,
+  "exactRetrace": true,
+  "conclusion": "The source catalogue contains a short northward out-and-back in the reported section. This may explain the visible hook; no claim of full Maps road fidelity.",
+  "sourceCatalogueChanged": false
+}

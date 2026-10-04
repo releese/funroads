@@ -1,0 +1,156 @@
+{
+ "nl": {
+  "km": 134450.2,
+  "edges": 2186120,
+  "nodes": 992311,
+  "components": 1479,
+  "largest": 984277,
+  "fun_qs": [
+   0.0,
+   0.0,
+   0.0,
+   0.319,
+   0.465
+  ],
+  "fun55_km": 13064.4,
+  "fun55_share": 9.7,
+  "dims": {
+   "score_corners": 0.148,
+   "score_flow": 0.515,
+   "score_quiet": 0.475,
+   "score_speed": 0.504,
+   "score_elevation": 0.187,
+   "score_surface": 0.743,
+   "score_scenery": 0.451
+  },
+  "speed_mix": {
+   "<=30": 40.6,
+   "50": 13.8,
+   "60": 29.6,
+   "70": 0.9,
+   "80": 8.8,
+   "90": 0.1,
+   "100": 5.9,
+   ">100": 0.4
+  },
+  "climb_per_km": 0.0,
+  "curviness": 138.8,
+  "engaged_per_km": 0.27,
+  "scenery": 0.42,
+  "excluded_km_share": 49.6,
+  "stretches": 4770,
+  "stretch_dir_km": 8904.6,
+  "areas": 398,
+  "circuits": 12,
+  "sprints": 3351,
+  "linked": 490,
+  "linked_loops": 186,
+  "eligible": {
+   "km": 67739.5,
+   "fun_qs": [
+    0.253,
+    0.311,
+    0.395,
+    0.481,
+    0.553
+   ],
+   "fun55_share": 19.3,
+   "dims": {
+    "score_corners": 0.139,
+    "score_flow": 0.513,
+    "score_quiet": 0.628,
+    "score_speed": 0.804,
+    "score_elevation": 0.196,
+    "score_surface": 0.818,
+    "score_scenery": 0.553
+   },
+   "speed_mix": {
+    "<=50": 25.0,
+    "60-80": 74.8,
+    "90": 0.0,
+    ">=100": 0.2
+   },
+   "curviness": 75.9,
+   "engaged_per_km": 0.47,
+   "scenery": 0.513,
+   "climb_per_km": 0.0
+  }
+ },
+ "ee": {
+  "km": 14259.1,
+  "edges": 87967,
+  "nodes": 52604,
+  "components": 2934,
+  "largest": 7056,
+  "fun_qs": [
+   0.0,
+   0.214,
+   0.374,
+   0.466,
+   0.533
+  ],
+  "fun55_km": 2756.3,
+  "fun55_share": 19.3,
+  "dims": {
+   "score_corners": 0.069,
+   "score_flow": 0.539,
+   "score_quiet": 0.651,
+   "score_speed": 0.725,
+   "score_elevation": 0.379,
+   "score_surface": 0.994,
+   "score_scenery": 0.58
+  },
+  "speed_mix": {
+   "<=30": 5.7,
+   "50": 15.9,
+   "60": 1.5,
+   "70": 8.0,
+   "80": 0.3,
+   "90": 66.2,
+   "100": 0.5,
+   ">100": 0.7
+  },
+  "climb_per_km": 0.0,
+  "curviness": 30.5,
+  "engaged_per_km": 0.18,
+  "scenery": 0.522,
+  "excluded_km_share": 13.2,
+  "stretches": 776,
+  "stretch_dir_km": 2463.2,
+  "areas": 186,
+  "circuits": 5,
+  "sprints": 701,
+  "linked": 84,
+  "linked_loops": 10,
+  "eligible": {
+   "km": 12376.1,
+   "fun_qs": [
+    0.295,
+    0.349,
+    0.424,
+    0.494,
+    0.548
+   ],
+   "fun55_share": 22.3,
+   "dims": {
+    "score_corners": 0.071,
+    "score_flow": 0.544,
+    "score_quiet": 0.664,
+    "score_speed": 0.765,
+    "score_elevation": 0.387,
+    "score_surface": 0.997,
+    "score_scenery": 0.598
+   },
+   "speed_mix": {
+    "<=50": 18.6,
+    "60-80": 10.3,
+    "90": 71.0,
+    ">=100": 0.0
+   },
+   "curviness": 28.4,
+   "engaged_per_km": 0.2,
+   "scenery": 0.536,
+   "climb_per_km": 0.0
+  }
+ }
+}
