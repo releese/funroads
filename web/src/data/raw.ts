@@ -1,9 +1,10 @@
 // Shapes of the generated caches as written by src/funroads/route.py and
 // src/funroads/linked.py. Read-only: the UI never writes these back.
+import { DEFAULT_COUNTRY } from './countries';
 
 export type LonLat = [number, number];
-export type Home = 'Zaandam' | 'Haarlem';
-export const HOMES: Home[] = ['Zaandam', 'Haarlem'];
+export type Home = string;
+export const HOMES: Home[] = DEFAULT_COUNTRY.homes;
 
 export const DIMENSIONS = ['corners', 'flow', 'quiet', 'speed', 'elevation', 'surface', 'scenery'] as const;
 export type Dimension = (typeof DIMENSIONS)[number];
@@ -15,7 +16,7 @@ export interface RawRoad {
 }
 
 export interface RawDetail {
-  climb_m?: number;
+  climb_m?: number | null;
   corner_count?: { tight: number; sweet: number; flowing: number };
   corners?: { dir: string; lat: number; lon: number; r: number; v: number }[];
   stops?: { type: string; note: string; lat: number; lon: number }[];
@@ -34,7 +35,7 @@ export interface RawCircuit extends RawDetail {
   fun_km: number;
   drive_min: number;
   reach_min: number | null; // from the Zaandam graph origin only
-  climb_m: number;
+  climb_m: number | null;
   corner_count: { tight: number; sweet: number; flowing: number };
   corners: { dir: string; lat: number; lon: number; r: number; v: number }[];
   curv: [number, number][]; // [km, 0-1]
@@ -46,6 +47,7 @@ export interface RawCircuit extends RawDetail {
   roads: RawRoad[];
   score: Record<Dimension | 'total', number>; // 0-100
   start: { label?: string; lat: number; lon: number };
+  distance_km?: Record<string, number>; // straight-line per home; absent in the NL circuit export
   stops: { type: string; note: string; lat: number; lon: number }[];
   why: string[];
   windows: string[];
@@ -84,7 +86,7 @@ export interface RawTopRoad {
 }
 
 export interface RoutesDoc {
-  meta: { generated?: string; title?: string; tagline?: string; windows?: string };
+  meta: { generated?: string; title?: string; tagline?: string; windows?: string; country?: string; schema_version?: number };
   home?: { lat: number; lon: number; name: string };
   routes: RawCircuit[];
   sprints: RawSprint[];
@@ -114,7 +116,7 @@ export interface RawRide extends RawDetail {
 export type LinkedProfile = 'scenic' | 'technical' | 'quiet';
 
 export interface LinkedDoc {
-  meta: { generated?: string; note?: string };
+  meta: { generated?: string; note?: string; country?: string; schema_version?: number };
   rides: RawRide[];
   profiles: Partial<Record<LinkedProfile, string[]>>;
   nearby_100km: Partial<Record<Home, Partial<Record<LinkedProfile, string[]>>>>;

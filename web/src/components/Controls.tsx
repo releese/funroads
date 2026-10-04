@@ -6,7 +6,7 @@ import { Slider } from 'baseui/slider';
 import { Checkbox, STYLE_TYPE as CHECK_STYLE } from 'baseui/checkbox';
 import { FormControl } from 'baseui/form-control';
 import { Tabs, Tab } from 'baseui/tabs-motion';
-import { HOMES } from '../data/raw';
+import { DEFAULT_COUNTRY, type Country } from '../data/countries';
 import {
   KM_LIMITS,
   NEARBY_KM,
@@ -22,6 +22,7 @@ import { Caption, ProfileIcon, StatIcon } from './ui';
 import { tokens } from '../theme';
 
 export interface ControlProps {
+  country?: Country;
   filters: Filters;
   onChange: (f: Filters) => void;
   onSearchChosen: (f: Filters) => void;
@@ -71,11 +72,12 @@ export const selectInputOverrides = (label: string) => ({
   InputContainer: { component: FilterSelectInput, props: { 'aria-label': label } },
 });
 
-export function HomeChoices({ filters: f, onChange }: Pick<ControlProps, 'filters' | 'onChange'>) {
+export function HomeChoices({ filters: f, onChange, country = DEFAULT_COUNTRY }: Pick<ControlProps, 'filters' | 'onChange' | 'country'>) {
+  const homes = country.homes;
   return (
-    <ButtonGroup mode={MODE.radio} selected={HOMES.indexOf(f.home)} aria-label="Home place"
-      onClick={(_event, index) => onChange({ ...f, home: HOMES[index] })} size={SIZE.compact} overrides={groupOverrides}>
-      {HOMES.map((home) => <Button key={home} role="radio" aria-checked={f.home === home} overrides={choiceOverrides}>{home}</Button>)}
+    <ButtonGroup mode={MODE.radio} selected={homes.indexOf(f.home)} aria-label="Home place"
+      onClick={(_event, index) => onChange({ ...f, home: homes[index] })} size={SIZE.compact} overrides={groupOverrides}>
+      {homes.map((home) => <Button key={home} role="radio" aria-checked={f.home === home} overrides={choiceOverrides}>{home}</Button>)}
     </ButtonGroup>
   );
 }
@@ -91,7 +93,7 @@ export function ProfileChoices({ filters: f, onChange }: Pick<ControlProps, 'fil
   );
 }
 
-export function RoadSearch({ filters: f, onChange, onSearchChosen, index }: Pick<ControlProps, 'filters' | 'onChange' | 'onSearchChosen' | 'index'>) {
+export function RoadSearch({ filters: f, onChange, onSearchChosen, index, country = DEFAULT_COUNTRY }: Pick<ControlProps, 'filters' | 'onChange' | 'onSearchChosen' | 'index' | 'country'>) {
   const [query, setQuery] = useState('');
   const suggestions = useMemo(() => searchSuggestions(index, query, 10), [index, query]);
 
@@ -102,7 +104,7 @@ export function RoadSearch({ filters: f, onChange, onSearchChosen, index }: Pick
   return (
     <FormControl label="Search a road or circuit area">
       <Select id="route-search" type={TYPE.search} options={options} value={searchValue}
-        placeholder="Road name, e.g. Duinlustweg" filterOptions={(o) => o}
+        placeholder={`Road name, e.g. ${country.searchExample}`} filterOptions={(o) => o}
         onInputChange={(e) => setQuery(e.currentTarget.value)}
         onChange={({ value }) => {
           const opt = value[0] as (typeof options)[number] | undefined;

@@ -1,5 +1,6 @@
 import type { Home } from './raw';
 import type { Kind, RouteView } from './model';
+import { DEFAULT_COUNTRY } from './countries';
 
 export type TypeTab = 'all' | 'circuit' | 'linked' | 'sprint';
 export const ROUTE_TYPES = ['circuit', 'linked', 'sprint'] as const;
@@ -36,7 +37,7 @@ export const NEARBY_KM = 100;
 export const KM_LIMITS = { min: 0, max: 120 };
 
 export const DEFAULT_FILTERS: Filters = {
-  home: 'Zaandam',
+  home: DEFAULT_COUNTRY.homes[0],
   scope: 'national',
   radiusKm: NEARBY_KM,
   type: 'all',

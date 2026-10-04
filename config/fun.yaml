@@ -1,0 +1,136 @@
+# The "what is fun" rubric for a spirited Sunday drive in a Porsche 997.
+#
+# Scoring philosophy:
+#   - Every sub-feature is scored on an ABSOLUTE piecewise-linear scale (anchors below),
+#     not on a national percentile. Absolute anchors keep the rubric stable across
+#     OSM snapshots and guarantee the floors from the plan: a dead-straight flat road
+#     scores 0 on corners no matter how the rest of the country looks.
+#   - The rubric never rewards exceeding the speed limit. "Engaging" corners are corners
+#     where the comfortable corner speed is below the legal limit, i.e. you must actually
+#     brake and steer. Speed headroom rewards legal *flow*, not top speed.
+#   - Hard exclusions remove edges entirely; penalties reduce the score.
+
+corner_model:
+  # A corner is detected on the 10 m-resampled centreline as a heading change event.
+  sample_step_m: 10
+  # Comfortable sustained lateral acceleration (fraction of g) for a road drive.
+  a_lat_comfort: 0.45
+  # Corner speed v = sqrt(a_lat * g * R), clamped to the legal limit of the edge.
+  # A corner is "engaging" when v < legal limit (braking + steering required).
+
+radius_bands_m: # weight of a corner by its radius band
+  hairpin: [0, 30, 0.7]        # < 30 m: tight, but often 2nd-gear crawly
+  sweet: [30, 150, 1.0]        # the 997 sweet spot: 3rd gear, real commitment
+  flowing: [150, 300, 0.6]
+  sweep: [300, 600, 0.2]
+  # > 600 m: not counted as a corner
+
+anchors:
+  # Curviness is total heading change per km, the same quantity the motorcycling
+  # community's curvature maps rank roads by. It is the backbone of the corner
+  # score because it measures sustained cornering rather than isolated bends.
+  # Calibrated against real Dutch roads: a straight polder road sits near 30,
+  # a nice winding forest road near 90, a serpentine dike road above 300.
+  curviness:
+    points: [[0, 0.0], [60, 0.25], [120, 0.5], [220, 0.75], [350, 1.0]]
+  corners: # engaged corner count per km, radius-weighted
+    points: [[0, 0.0], [1.5, 0.35], [3, 0.65], [4.5, 0.85], [6, 1.0]]
+  esses: # share of direction-alternating heading change within 500 m windows
+    points: [[0, 0.0], [0.3, 0.4], [0.5, 0.75], [0.7, 1.0]]
+  flow: # full-stops (signals, roundabouts, give-ways on the driven road) per km
+    points: [[0, 1.0], [0.7, 0.8], [1.5, 0.5], [3, 0.15], [5, 0.0]]
+  straights: # share of length in 100-500 m links between corners (the ideal is ~0.35)
+    ideal_min: 0.15
+    ideal_max: 0.50
+    below: 0.3 # score if share < ideal_min
+    above: 0.3 # score if share > ideal_max
+    peak: 1.0
+  quiet: # inverse of the busyness index (0 = empty Sunday road, 1 = town main street)
+    points: [[0.02, 1.0], [0.1, 0.85], [0.25, 0.55], [0.45, 0.2], [0.7, 0.0]]
+  speed: # legal speed headroom of the dominant edge limit
+    points: [[15, 0.0], [30, 0.1], [50, 0.45], [60, 0.9], [80, 1.0], [100, 0.65], [130, 0.25]]
+  elevation: # total climb + descent per km (m/km), NL flat baseline gets nothing for free
+    points: [[0, 0.0], [5, 0.25], [10, 0.5], [20, 0.75], [35, 1.0]]
+  grade: # max sustained grade (%)
+    points: [[0, 0.0], [2, 0.2], [4, 0.6], [6, 0.85], [9, 1.0]]
+  scenery: # share of length with forest/heath/dune/water/panorama adjacent
+    points: [[0, 0.0], [0.2, 0.3], [0.5, 0.7], [0.8, 1.0]]
+
+# Corner score = curviness (sustained heading change) blended with engaged
+# corners (bends that force braking below the legal limit). Engagement alone
+# undervalues 60 km/h hill roads (Cauberg, Camerig, Posbank): their bends are
+# real but a comfortable corner speed there is still above 60.
+# 2026-09 retune experiment (curviness 0.70) reverted: it barely changed hill
+# roads and is not worth the extra selects it admits at this weight.
+corner_blend:
+  curviness: 0.55
+  engaged: 0.45
+
+weights:
+  corners: 0.30
+  flow: 0.15
+  quiet: 0.15
+  speed: 0.15     # legal 60-80 km/h headroom is a real fun factor (Duinlustweg,
+                  # Brikweg); cutting this to 0.05 dropped them below threshold
+  elevation: 0.10 # relief is rare in NL, but 0.15 was not what surfaced hills;
+                  # the stretch-bridging fix was
+  surface: 0.10
+  scenery: 0.10
+
+surface_base: # base score by surface tag (before low-car penalties)
+  asphalt: 1.0
+  concrete: 0.9
+  paved: 0.9
+  paving_stones: 0.45 # Dutch klinkers: bumpy but drivable, common on dikes
+  sett: 0.15
+  cobblestone: 0.1
+  unpaved: 0.0 # also excluded
+  default: 0.6
+
+low_car_penalties: # multipliers on the surface score, hazards for a low 997
+  speed_bump_each: 0.92        # traffic_calming=bump
+  table_each: 0.95             # traffic_calming=table / raised crossing
+  narrow_below_4m: 0.8         # width < 4 m: two-way meeting dance
+  very_narrow_below_3m: 0.6
+  camera_each: 0.97            # speed camera / average-speed zone on the edge
+  bridge_joints_each: 0.99     # not tracked yet, placeholder
+
+exclusions:
+  surfaces: [unpaved, gravel, fine_gravel, ground, dirt, grass, sand, compacted, pebblestone, wood, mud]
+  highway: [footway, cycleway, path, bridleway, steps, pedestrian, track, raceway, construction, proposed]
+  access: [no, private, destination, agricultural, forestry] # destination only via explicit connector override
+  residential_in_builtup_with_bumps: true
+
+connectors:
+  # A* / double-Dijkstra cost = length * (1 + lambda * (1 - fun))^gamma
+  lambda: 3.0
+  gamma: 2.0
+  reuse_penalty: 2.5            # multiplier on already-used edges for national circuit returns / variants
+  linked_loop_reuse_penalty: 15.0 # multiplier on the chain's own roads when closing a linked loop
+  motorway_fallback: true       # motorways/trunk allowed as connectors only
+
+routing:
+  stretch_min_km: 1.0           # chained fun edges >= this become candidate stretches
+  stretch_fun_threshold: 0.55   # edge fun score needed to join a stretch
+  stretch_split_gap_m: 400      # gap in fun edges that splits a stretch
+  sprint_bridge_share_max: 0.25 # retain short junction crossings, not long dull sections
+  linked_min_fun: 0.45         # whole rides include connectors and return roads
+  linked_open_connector_share_max: 0.20 # same low-fun road cap as linked loops
+  linked_low_fun_below: 0.35    # edges below this (or excluded) count as low-fun road in linked rides
+  linked_retrace_share_max: 0.20 # share of a linked ride within 25 m of itself in the opposite
+                                # direction (same road or a parallel carriageway), both passes counted
+  cluster_radius_m: 6000        # grid-based clustering of stretch midpoints into areas
+  circuit_min_km: 40
+  circuit_max_km: 120
+  connector_share_max: 0.45     # circuit rejected if connectors exceed this share of length
+  linked_loop_connector_share_max: 0.20 # short closures should not dominate a ride
+  top_routes: 12                # national output
+  variants_per_area: 2          # k routes per area via edge-reuse penalties
+  overlap_drop_threshold: 0.30  # drop a variant sharing > 30% of edges with a kept route
+  within_home_min: 60           # flag circuits reachable from home within 60 min
+
+time_model:
+  # per-edge driving speed for time estimates: min(legal, corner_v95, scenery_cruise)
+  corner_v95_factor: 1.0        # use the comfortable corner speed on engaged corners
+  intersection_penalty_s: 8    # per full stop node on the route
+  cruise_factor: 0.85          # assume 85% of the limit on clear rural roads

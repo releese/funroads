@@ -2,6 +2,13 @@
 __pycache__/
 *.pyc
 data/raw/
+data/ee/*
+!data/ee/manifest.json
+!data/ee/cache/
+data/ee/cache/*
+!data/ee/cache/routes.json
+!data/ee/cache/linked.json
+!data/ee/cache/route-evidence.json
 data/cache/*
 !data/cache/routes.json
 !data/cache/linked.json
@@ -13,12 +20,5 @@ node_modules/
 .env.*
 *.log
 /tmp-*.png
-# Local pipeline, prototypes, and planning notes are not part of the website.
-/config/
-/src/
-/tests/
-/reports/
-web/legacy-prototype/
-*.md
-pyproject.toml
-requirements.txt
+# Publish project sources, tests, documentation and acceptance evidence.
+# Downloaded inputs, generated graph caches, dependencies and build output stay local.

@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { countryFromLocation, type CountryId } from './data/countries';
 
 type InstallPrompt = Event & {
   prompt: () => Promise<void>;
@@ -7,6 +8,7 @@ type InstallPrompt = Event & {
 
 export interface PwaState {
   offline: 'checking' | 'preparing' | 'ready' | 'unavailable';
+  country: CountryId | null;
   online: boolean;
   update: boolean;
   version: string | null;
@@ -17,6 +19,7 @@ export interface PwaState {
 
 let state: PwaState = {
   offline: import.meta.env.PROD && 'serviceWorker' in navigator ? 'checking' : 'unavailable',
+  country: null,
   online: navigator.onLine,
   update: false,
   version: null,
@@ -53,7 +56,7 @@ window.addEventListener('appinstalled', () => {
   setState({ installed: true, installAvailable: false });
 });
 
-export function verifyOffline(worker: ServiceWorker): Promise<{ ready: boolean; version: string }> {
+export function verifyOffline(worker: ServiceWorker, country: CountryId = 'nl'): Promise<{ ready: boolean; version: string }> {
   return new Promise((resolve, reject) => {
     const channel = new MessageChannel();
     const finish = () => {
@@ -68,10 +71,10 @@ export function verifyOffline(worker: ServiceWorker): Promise<{ ready: boolean; 
     channel.port1.onmessage = ({ data }) => {
       if (data?.type !== 'OFFLINE_STATUS' || typeof data.ready !== 'boolean' || typeof data.version !== 'string') return;
       finish();
-      resolve({ ready: data.ready, version: data.version });
+      resolve({ ready: data.ready && data.country === country, version: data.version });
     };
     try {
-      worker.postMessage({ type: 'OFFLINE_STATUS' }, [channel.port2]);
+      worker.postMessage({ type: 'OFFLINE_STATUS', country }, [channel.port2]);
     } catch (error) {
       finish();
       reject(error);
@@ -84,9 +87,11 @@ async function refreshReadiness() {
   setState({ update: !!registration.waiting });
   if (!registration.active) return;
   try {
-    const result = await verifyOffline(registration.active);
+    const country = countryFromLocation().id;
+    const result = await verifyOffline(registration.active, country);
     setState({
       offline: result.ready ? 'ready' : 'unavailable',
+      country,
       version: result.version,
       error: result.ready ? null : 'Offline files are incomplete. Keep an internet connection for browsing.',
     });

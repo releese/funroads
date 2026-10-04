@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark"><title>FunRoads</title>
+<!-- Pinned CDN: MapLibre GL JS 5.9.0; uPlot 1.6.9 -->
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.9.0/dist/maplibre-gl.css">
+<link rel="stylesheet" href="https://unpkg.com/uplot@1.6.9/dist/uPlot.min.css">
+<!--FUNROADS:CSS-->
+</head>
+<body>
+<main id="app">
+  <div id="map" aria-label="Route map"></div><div id="map-message" hidden>basemap unavailable — routes still shown</div>
+  <aside id="sidebar" aria-label="Routes"><div id="sidebar-content"></div></aside>
+  <section id="drawer" aria-label="Route profile"><button id="drawer-close" aria-label="Close profile">×</button><div id="profile-head"></div><div id="chart"></div></section>
+  <div id="tip" role="status"></div><footer>© OpenStreetMap contributors (ODbL), CARTO/OpenFreeMap, Rijkswaterstaat WKD & NDW, AHN/PDOK, CBS, roadcurvature.com</footer>
+</main>
+<script src="https://unpkg.com/maplibre-gl@5.9.0/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/uplot@1.6.9/dist/uPlot.iife.min.js"></script>
+<!--FUNROADS:DATA-->
+<!--FUNROADS:JS-->
+</body></html>

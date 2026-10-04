@@ -3,10 +3,16 @@ import { styled } from 'baseui';
 import { StatelessAccordion, Panel } from 'baseui/accordion';
 import type { Kind, RouteView } from '../data/model';
 import type { Home } from '../data/raw';
+import type { Country } from '../data/countries';
 import type { Profile } from '../data/filters';
 import { KIND_LABEL } from '../data/model';
 import { km } from '../data/format';
 import { tokens } from '../theme';
+
+export function SourceNotice({ country }: { country: Country }) {
+  return <>{country.attribution}{country.sourceLinks?.map(({ label, url }) =>
+    <span key={url}> · <a href={url} target="_blank" rel="noopener noreferrer">{label}</a></span>)}</>;
+}
 
 export const SectionTitle = styled('h2', {
   fontSize: '14px',

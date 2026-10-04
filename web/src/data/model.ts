@@ -1,6 +1,5 @@
 import {
   DIMENSIONS,
-  HOMES,
   type Dimension,
   type Home,
   type LinkedDoc,
@@ -11,7 +10,10 @@ import {
   type RoutesDoc,
 } from './raw';
 import { CIRCUIT_INK, spatialInfo, TINTS } from './spatial';
-import { cumulativeKm } from '../map/geo';
+import { haversineKm } from '../map/geo';
+import { mapsHandover, COMPACT_WAYPOINTS, DESKTOP_WAYPOINTS, type MapsHandover } from './gmaps';
+import { DEFAULT_COUNTRY, routeKey, type Country } from './countries';
+import { displayName } from './format';
 
 /** Display families. Linked loops are a different algorithm from national circuits. */
 export type Kind = 'circuit' | 'linked-loop' | 'linked-open' | 'sprint';
@@ -39,12 +41,6 @@ export const stopPin = (type: string) => STOP_PIN[type] ?? type.charAt(0).toUppe
 const LEGACY_QUIET_WHY = 'Quiet back roads, little traffic';
 export const QUIET_WHY = 'Modelled as usually quiet (static estimate, not live traffic)';
 
-/**
- * Google documents 3 waypoints for mobile browsers and 9 elsewhere. Phones get
- * the full link first; this size is the fallback.
- */
-export const COMPACT_WAYPOINTS = 3;
-
 export interface RouteProfile {
   climbM: number | null;
   cornerCount: NonNullable<RawDetail['corner_count']> | null;
@@ -60,8 +56,9 @@ export interface CircuitDetail extends RouteProfile {
   areaId: string;
   areaName: string;
   flags: string[];
-  /** Modeled drive from the Zaandam graph origin; there is no Haarlem value. */
-  reachMinFromZaandam: number | null;
+  /** The build's modeled origin, not the currently selected nearby origin. */
+  reachOrigin: string | null;
+  reachMin: number | null;
 }
 
 export interface RouteView {
@@ -78,7 +75,7 @@ export interface RouteView {
   funScoreBasis: 'route-total' | 'road-average';
   dims: Record<Dimension, number>; // 0-100
   driveMin: number | null;
-  /** Straight-line km from each home; null where the data has none (circuits). */
+  /** Straight-line km from each home; null where the export has none (NL circuits). */
   distanceKm: Record<Home, number> | null;
   connectorShare: number | null;
   /** Linked rides only: share driven twice in opposite directions. */
@@ -93,11 +90,8 @@ export interface RouteView {
   end: LonLat;
   bbox: [number, number, number, number];
   line: LonLat[];
-  gmaps: string | null;
-  /** Line-derived link within the mobile-browser waypoint limit. */
-  gmapsCompact: string | null;
-  /** 'pipeline' = link shipped in the data; 'line' = built here from the route's own line. */
-  gmapsSource: 'pipeline' | 'line' | null;
+  /** Whole-route links, never sections. Layout budgets do not detect the Maps app. */
+  navigation: { desktop: MapsHandover | null; compact: MapsHandover | null };
   circuit: CircuitDetail | null;
   profile: RouteProfile;
   /** Linked profile lists this ride appears in (national). */
@@ -113,6 +107,7 @@ export interface RouteView {
 }
 
 export interface Catalogue {
+  country: Country;
   routes: RouteView[];
   byKey: Map<string, RouteView>;
   areas: RoutesDoc['areas'];
@@ -123,6 +118,13 @@ export interface Catalogue {
 }
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
+
+function navigation(line: LonLat[], loop: boolean): RouteView['navigation'] {
+  return {
+    desktop: mapsHandover(line, loop, DESKTOP_WAYPOINTS),
+    compact: mapsHandover(line, loop, COMPACT_WAYPOINTS),
+  };
+}
 
 function routeProfile(r: RawDetail): RouteProfile {
   return {
@@ -156,7 +158,7 @@ function bboxOf(line: LonLat[]): [number, number, number, number] {
 }
 
 export function roadKey(name: string): string {
-  return name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  return displayName(name).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 }
 
 /** Only well-formed Google Maps direction links are offered. */
@@ -172,33 +174,6 @@ export function validGmaps(url: string | undefined): string | null {
   }
 }
 
-/**
- * A Google Maps directions link through points of the route's own line spaced
- * evenly by distance, not by vertex count (vertices bunch up in bends). Google
- * allows 9 waypoints on desktop but only COMPACT_WAYPOINTS in mobile browsers.
- */
-export function gmapsFromLine(line: LonLat[], loop: boolean, waypoints = 8): string | null {
-  if (line.length < 2) return null;
-  const fmt = ([lon, lat]: LonLat) => `${lat.toFixed(6)},${lon.toFixed(6)}`;
-  const last = line.length - 1;
-  const cum = cumulativeKm(line);
-  const inner: LonLat[] = [];
-  let idx = 1;
-  for (let i = 1; i <= waypoints; i++) {
-    const target = (i * cum[last]) / (waypoints + 1);
-    while (idx < last && cum[idx] < target) idx++;
-    if (idx < last && inner[inner.length - 1] !== line[idx]) inner.push(line[idx]);
-  }
-  const p = new URLSearchParams({
-    api: '1',
-    origin: fmt(line[0]),
-    destination: fmt(loop ? line[0] : line[last]),
-    travelmode: 'driving',
-  });
-  if (inner.length) p.set('waypoints', inner.map(fmt).join('|'));
-  return `https://www.google.com/maps/dir/?${p.toString()}`;
-}
-
 function dims(score: Record<string, number>, scale: number): Record<Dimension, number> {
   const out = {} as Record<Dimension, number>;
   for (const d of DIMENSIONS) out[d] = round1(score[d] * scale);
@@ -208,12 +183,13 @@ function dims(score: Record<string, number>, scale: number): Record<Dimension, n
 export function buildCatalogue(
   routesDoc: RoutesDoc | null,
   linkedDoc: LinkedDoc | null,
+  country: Country = DEFAULT_COUNTRY,
 ): Catalogue {
   const routes: RouteView[] = [];
 
   for (const c of routesDoc?.routes ?? []) {
     routes.push({
-      key: `circuit:${c.id}`,
+      key: routeKey(country, 'circuit', c.id),
       id: c.id,
       catalog: 'circuit',
       kind: 'circuit',
@@ -224,7 +200,7 @@ export function buildCatalogue(
       funScoreBasis: 'route-total',
       dims: dims(c.score, 1),
       driveMin: typeof c.drive_min === 'number' ? c.drive_min : null,
-      distanceKm: null,
+      distanceKm: c.distance_km ?? null,
       connectorShare: null,
       retraceShare: null,
       roads: c.roads,
@@ -237,15 +213,14 @@ export function buildCatalogue(
       end: [c.start.lon, c.start.lat],
       bbox: bboxOf(c.line),
       line: c.line,
-      gmaps: validGmaps(c.links?.gmaps) ?? gmapsFromLine(c.line, true),
-      gmapsCompact: gmapsFromLine(c.line, true, COMPACT_WAYPOINTS),
-      gmapsSource: validGmaps(c.links?.gmaps) ? 'pipeline' : 'line',
+      navigation: navigation(c.line, true),
       circuit: {
         ...routeProfile(c),
         areaId: c.area_id,
         areaName: c.area_name,
         flags: Array.isArray(c.flags) ? c.flags : [],
-        reachMinFromZaandam: typeof c.reach_min === 'number' ? c.reach_min : null,
+        reachOrigin: country.reachOrigin,
+        reachMin: country.reachOrigin && typeof c.reach_min === 'number' ? c.reach_min : null,
       },
       profile: routeProfile(c),
       profileLists: [],
@@ -274,7 +249,7 @@ export function buildCatalogue(
   for (const r of linkedDoc?.rides ?? []) {
     const last = r.line[r.line.length - 1];
     routes.push({
-      key: `linked:${r.id}`,
+      key: routeKey(country, 'linked', r.id),
       id: r.id,
       catalog: 'linked',
       kind: r.type === 'circuit' ? 'linked-loop' : 'linked-open',
@@ -298,9 +273,7 @@ export function buildCatalogue(
       end: last,
       bbox: bboxOf(r.line),
       line: r.line,
-      gmaps: gmapsFromLine(r.line, r.type === 'circuit'),
-      gmapsCompact: gmapsFromLine(r.line, r.type === 'circuit', COMPACT_WAYPOINTS),
-      gmapsSource: 'line',
+      navigation: navigation(r.line, r.type === 'circuit'),
       circuit: null,
       profile: routeProfile(r),
       profileLists: profileIndex.get(r.id) ?? [],
@@ -313,7 +286,7 @@ export function buildCatalogue(
 
   for (const s of routesDoc?.sprints ?? []) {
     routes.push({
-      key: `sprint:${s.id}`,
+      key: routeKey(country, 'sprint', s.id),
       id: s.id,
       catalog: 'sprint',
       kind: 'sprint',
@@ -337,10 +310,7 @@ export function buildCatalogue(
       end: [s.end.lon, s.end.lat],
       bbox: bboxOf(s.line),
       line: s.line,
-      // Few waypoints: sprints are short, and extra points make Google detour.
-      gmaps: gmapsFromLine(s.line, false, 3),
-      gmapsCompact: gmapsFromLine(s.line, false, COMPACT_WAYPOINTS),
-      gmapsSource: 'line',
+      navigation: navigation(s.line, false),
       circuit: null,
       profile: routeProfile(s),
       profileLists: [],
@@ -351,6 +321,12 @@ export function buildCatalogue(
     });
   }
 
+  for (const r of routes) {
+    r.name = displayName(r.name);
+    r.roads = r.roads.map((road) => ({ ...road, name: displayName(road.name) }));
+    r.anchorRoads = r.anchorRoads.map(displayName);
+    if (r.circuit) r.circuit.areaName = displayName(r.circuit.areaName);
+  }
   const byKey = new Map(routes.map((r) => [r.key, r]));
   const spatial = spatialInfo(
     routes.map((r) => ({ key: r.key, bbox: r.bbox, line: r.line, isCircuit: r.kind === 'circuit', rank: r.funKm })),
@@ -365,10 +341,11 @@ export function buildCatalogue(
   for (const r of routes) counts[r.kind]++;
 
   return {
+    country,
     routes,
     byKey,
-    areas: routesDoc?.areas ?? [],
-    toproads: routesDoc?.toproads ?? [],
+    areas: (routesDoc?.areas ?? []).map((area) => ({ ...area, name: displayName(area.name) })),
+    toproads: (routesDoc?.toproads ?? []).map((road) => ({ ...road, name: displayName(road.name) })),
     windows,
     meta: {
       routesGenerated: routesDoc?.meta.generated,
@@ -394,9 +371,7 @@ export function similarRoutes(route: RouteView, all: RouteView[], limit = 5): Ro
 
   const [cx, cy] = bboxCenter(route.bbox);
   const dist = (r: RouteView) => {
-    const [x, y] = bboxCenter(r.bbox);
-    // Rough km scale at Dutch latitudes, good enough for ranking neighbours.
-    return Math.hypot((x - cx) * 68, (y - cy) * 111);
+    return haversineKm([cx, cy], bboxCenter(r.bbox));
   };
   const overlapping = new Set(route.sharesWith.filter((s) => s.share >= 0.5).map((s) => s.key));
   const candidates = all.filter((r) => r.key !== route.key && !overlapping.has(r.key));
@@ -436,8 +411,10 @@ export function buildCollections(cat: Catalogue): Collection[] {
   if (cat.counts.circuit > 0) {
     out.push({
       id: 'circuits',
-      title: 'National circuits',
-      description: 'The ranked national loops, 40–120 km, returning to their start.',
+      title: cat.country.coverage ? 'Pilot circuits' : 'National circuits',
+      description: cat.country.coverage
+        ? 'Ranked loops within the pilot, returning to their start.'
+        : 'The ranked national loops, 40–120 km, returning to their start.',
       keys: cat.routes.filter((r) => r.kind === 'circuit').map((r) => r.key),
     });
   }
@@ -449,9 +426,10 @@ export function buildCollections(cat: Catalogue): Collection[] {
       .filter((r) => r.profileLists.includes(p))
       .sort((a, b) => b.dims[p === 'technical' ? 'corners' : p === 'scenic' ? 'scenery' : 'quiet'] - a.dims[p === 'technical' ? 'corners' : p === 'scenic' ? 'scenery' : 'quiet'])
       .map((r) => r.key);
-    out.push({ id: `profile:${p}`, title: PROFILE_TITLE[p], description: PROFILE_BLURB[p], keys });
+    out.push({ id: `profile:${p}`, title: PROFILE_TITLE[p],
+      description: cat.country.coverage ? PROFILE_BLURB[p].replace('nationally', 'within the pilot') : PROFILE_BLURB[p], keys });
   }
-  for (const home of HOMES) {
+  for (const home of cat.country.homes) {
     const seen = new Set<LinkedProfile>();
     for (const r of cat.routes) for (const p of r.nearbyLists[home] ?? []) seen.add(p);
     for (const p of ['scenic', 'technical', 'quiet'] as LinkedProfile[]) {

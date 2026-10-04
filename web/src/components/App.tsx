@@ -10,7 +10,8 @@ import { applyFilters, DEFAULT_FILTERS, exclusionReasons, resetFilters, type Fil
 import { loadFavoriteNames, loadFavorites, saveFavoriteNames, saveFavorites, toggleFavorite } from '../data/favorites';
 import { buildSearchIndex } from '../data/search';
 import { loadAll } from '../data/load';
-import { formatDate, plural } from '../data/format';
+import { belongsToCountry, countryFromLocation, type Country } from '../data/countries';
+import { displayName, formatDate, plural } from '../data/format';
 import { MapView, type FitRequest, type MapStatus, type Padding } from '../map/MapView';
 import { pointAtFraction, unionBBox, MAX_CONTEXT_LINES } from '../map/geo';
 import { useDebounced, useMediaQuery } from '../hooks';
@@ -18,30 +19,34 @@ import { MQ, tokens } from '../theme';
 import { closeSurfaceLocation, openSurfaceLocation, readRouteLocation, writeRouteLocation } from '../navigation';
 import { PwaStatus } from './PwaStatus';
 import { Controls } from './Controls';
-import { DiscoveryControls, RouteTypeChoices } from './DiscoveryControls';
+import { CountryPicker, DiscoveryControls, RouteTypeChoices } from './DiscoveryControls';
 import { ResultsList, PAGE_SIZE } from './Results';
 import { RouteDetail } from './RouteDetail';
-import { Caption, Disclosure, KindGlyph, KindLabel, Notice, RouteStats, SAFETY_NOTE, SectionTitle, StatIcon } from './ui';
+import { Caption, Disclosure, KindGlyph, KindLabel, Notice, RouteStats, SAFETY_NOTE, SectionTitle, StatIcon, SourceNotice } from './ui';
 
 interface LoadState {
   status: 'loading' | 'ready' | 'error';
   catalogue: Catalogue | null;
   problems: string[];
   progress: string;
+  retryable: boolean;
 }
 
 const EMPTY_POOL: RouteView[] = [];
 
-export function App({ dataBase }: { dataBase: string }) {
+export function App({ dataBase, country = countryFromLocation() }: { dataBase: string; country?: Country }) {
   const [css] = useStyletron();
   const isMobile = useMediaQuery(MQ.mobile);
   const reducedMotion = useMediaQuery(MQ.reducedMotion);
   const narrowWorkspace = useMediaQuery(MQ.narrowWorkspace);
   const shortViewport = useMediaQuery(MQ.shortViewport);
 
-  const [load, setLoad] = useState<LoadState>({ status: 'loading', catalogue: null, problems: [], progress: '' });
-  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
-  const [selectedKey, setSelectedKey] = useState<string | null>(() => readRouteLocation().key);
+  const [load, setLoad] = useState<LoadState>({ status: 'loading', catalogue: null, problems: [], progress: '', retryable: false });
+  const [filters, setFilters] = useState<Filters>(() => ({ ...DEFAULT_FILTERS, home: country.homes[0] }));
+  const [selectedKey, setSelectedKey] = useState<string | null>(() => {
+    const key = readRouteLocation().key;
+    return key && belongsToCountry(key, country) ? key : null;
+  });
   const [hoverKey, setHoverKey] = useState<string | null>(null);
   const [fit, setFit] = useState<FitRequest | null>(null);
   const [shown, setShown] = useState(PAGE_SIZE);
@@ -113,30 +118,42 @@ export function App({ dataBase }: { dataBase: string }) {
   }, [isMobile, narrowWorkspace]);
 
   useEffect(() => {
-    let cancelled = false;
-    setLoad((s) => ({ ...s, status: 'loading', progress: '' }));
+    const controller = new AbortController();
+    setLoad({ status: 'loading', catalogue: null, problems: [], progress: '', retryable: false });
     loadAll(dataBase, (loaded, total) => {
-      if (cancelled) return;
+      if (controller.signal.aborted) return;
       const mb = (n: number) => (n / 1e6).toFixed(1);
       setLoad((s) => ({ ...s, progress: total ? `${mb(loaded)} of ${mb(total)} MB` : `${mb(loaded)} MB` }));
-    }).then(({ routes, linked }) => {
-      if (cancelled) return;
+    }, country, controller.signal).then(({ routes, linked }) => {
+      if (controller.signal.aborted) return;
       const problems: string[] = [];
       if (routes.error) problems.push(`Circuits and sprints could not be loaded (${routes.error}).`);
       if (linked.error) problems.push(`Linked rides could not be loaded (${linked.error}).`);
       const dropped = [...(routes.value?.dropped ?? []), ...(linked.value?.dropped ?? [])];
       if (dropped.length) problems.push(`${plural(dropped.length, 'record')} skipped because required fields were missing or malformed.`);
       if (!routes.value && !linked.value) {
-        setLoad({ status: 'error', catalogue: null, problems, progress: '' });
+        setLoad({ status: 'error', catalogue: null, problems, progress: '', retryable: true });
         return;
       }
-      const catalogue = buildCatalogue(routes.value?.doc ?? null, linked.value?.doc ?? null);
-      setLoad({ status: 'ready', catalogue, problems, progress: '' });
+      const catalogue = buildCatalogue(routes.value?.doc ?? null, linked.value?.doc ?? null, country);
+      setLoad({ status: 'ready', catalogue, problems, progress: '', retryable: !!(routes.error || linked.error) });
     });
     return () => {
-      cancelled = true;
+      controller.abort();
     };
-  }, [dataBase, reloadToken]);
+  }, [dataBase, reloadToken, country.id]);
+
+  useEffect(() => {
+    setFilters({ ...DEFAULT_FILTERS, home: country.homes[0] });
+    setCollectionId(null);
+    setHoverKey(null);
+    setCursorKm(null);
+    setFit(null);
+    const key = readRouteLocation().key;
+    const validKey = key && belongsToCountry(key, country) ? key : null;
+    setSelectedKey(validKey);
+    setDetailOpen(!!validKey && readRouteLocation().detail);
+  }, [country.id]);
 
   const cat = load.catalogue;
 
@@ -156,7 +173,7 @@ export function App({ dataBase }: { dataBase: string }) {
 
   const removeStaleFavorites = () => {
     if (!cat) return;
-    const next = new Set([...favs].filter((k) => cat.byKey.has(k)));
+    const next = new Set([...favs].filter((k) => !belongsToCountry(k, country) || cat.byKey.has(k)));
     setFavs(next);
     const persisted = saveFavorites(next);
     setSaveFeedback(persisted ? 'Unavailable routes removed from saved.'
@@ -322,6 +339,7 @@ export function App({ dataBase }: { dataBase: string }) {
 
   const rail = (
     <RailContent
+      country={country}
       load={load}
       filters={filters}
       setFilters={setFilters}
@@ -358,6 +376,7 @@ export function App({ dataBase }: { dataBase: string }) {
       key={selected.key}
       ref={detailHeading}
       route={selected}
+      country={country}
       home={filters.home}
       allRoutes={cat?.routes ?? EMPTY_POOL}
       generated={selected.catalog === 'linked' ? cat?.meta.linkedGenerated : cat?.meta.routesGenerated}
@@ -391,8 +410,9 @@ export function App({ dataBase }: { dataBase: string }) {
             backgroundColor: 'transparent',
           })}
         >
-          <div className={css({ display: 'flex', alignItems: 'baseline', gap: '12px', minWidth: 0 })}>
-            <h1 className={css({ fontSize: isMobile ? '16px' : '20px', lineHeight: '24px', fontWeight: 700, margin: 0, whiteSpace: 'nowrap' })}>FunRoads NL</h1>
+          <div className={css({ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', minWidth: 0, fontSize: isMobile ? '16px' : '20px', lineHeight: '24px', fontWeight: 700 })}>
+            <h1 className={css({ fontSize: 'inherit', lineHeight: 'inherit', fontWeight: 'inherit', margin: 0, whiteSpace: 'nowrap' })}>FunRoads</h1>
+            <CountryPicker country={country} />
           </div>
         </header>
 
@@ -408,6 +428,7 @@ export function App({ dataBase }: { dataBase: string }) {
           <div onPointerDownCapture={() => { dismissOnly.current = legendOpen || !!document.querySelector('[role="listbox"], [data-baseweb="popover"]'); }}
             className={css({ flex: 1, minWidth: 0, minHeight: 0, overflow: 'hidden', position: 'relative', backgroundColor: tokens.canvasSofter })}>
             <MapView
+              country={country}
               ranked={result.results}
               contextPool={cat?.routes ?? EMPTY_POOL}
               selected={selected}
@@ -428,7 +449,7 @@ export function App({ dataBase }: { dataBase: string }) {
               onAttribution={setMapAttribution}
               onInteract={() => { setLegendOpen(false); if (isMobile) setSheetOpen(false); }}
             />
-            <MapStatusBanner status={mapStatus} />
+            <MapStatusBanner status={mapStatus} country={country} />
             <div className={css({ position: 'absolute', top: 'calc(8px + env(safe-area-inset-top))', right: '10px', zIndex: 3 })}>
               <Popover isOpen={legendOpen} onClickOutside={() => setLegendOpen(false)}
                 onClick={() => { if (isMobile) setSheetOpen(false); setLegendOpen((open) => !open); }}
@@ -440,8 +461,8 @@ export function App({ dataBase }: { dataBase: string }) {
                       if (element && mapAttribution) element.appendChild(mapAttribution);
                     }} />
                     <Disclosure title="App and data">
-                      <PwaStatus engaged={!!selected || favs.size > 0} />
-                      <AboutText cat={cat} />
+                      <PwaStatus country={country} engaged={!!selected || favs.size > 0} />
+                      <AboutText cat={cat} country={country} />
                     </Disclosure>
                   </div>
                 }>
@@ -565,7 +586,7 @@ export function App({ dataBase }: { dataBase: string }) {
         <ModalHeader id="filters-heading" $style={{ margin: '20px 20px 0', flex: 'none' }}>Route filters</ModalHeader>
         <ModalBody className="fr-scroll" $style={{ margin: '8px 20px 0', overflowY: 'auto', minHeight: 0 }}>
           {collectionId ? <Caption>Favorites applies to this list. Other filters apply when you return to all routes.</Caption> : null}
-          {cat ? <Controls filters={filters} onChange={setFilters} onSearchChosen={onSearchChosen} index={index}
+          {cat ? <Controls country={country} filters={filters} onChange={setFilters} onSearchChosen={onSearchChosen} index={index}
             windows={cat.windows} typeCounts={result.typeCounts} hasLinked={cat.counts['linked-open'] + cat.counts['linked-loop'] > 0} areaCount={cat.areas.length}
             favoritesOnly={favOnly} onFavoritesOnly={setFavOnly} favoriteCount={[...favs].filter((key) => cat.byKey.has(key)).length} /> : null}
         </ModalBody>
@@ -585,12 +606,12 @@ function restoreDetailFocus(opener: HTMLElement | null, key: string | null) {
   target?.focus({ preventScroll: true });
 }
 
-function MapStatusBanner({ status }: { status: MapStatus }) {
+function MapStatusBanner({ status, country }: { status: MapStatus; country: Country }) {
   const [css] = useStyletron();
   if (status === 'ready' || status === 'loading') return null;
   const text =
     status === 'unavailable'
-      ? 'The map could not start on this device. Every route is in the list; route data © OpenStreetMap contributors (ODbL), Rijkswaterstaat, NDW, AHN/PDOK, CBS.'
+      ? `The map could not start on this device. Every route is in the list; route data ${country.attribution}.`
       : status === 'basemap-failed'
         ? 'Basemap tiles could not load, so routes are drawn on a plain background. The list still has every route.'
         : 'Some map tiles failed to load. The list still has every route.';
@@ -626,6 +647,7 @@ function Legend() {
 }
 
 interface RailProps {
+  country: Country;
   load: LoadState;
   filters: Filters;
   setFilters: (f: Filters) => void;
@@ -667,7 +689,7 @@ function RailContent(p: RailProps) {
     return (
       <div style={{ paddingTop: 16 }}>
         <Notice tone="warning">
-          <strong>Route data could not be loaded.</strong> {load.problems.join(' ')}
+          <strong>Route data for {p.country.name} could not be loaded.</strong> {load.problems.join(' ')}
         </Notice>
         <Button shape={SHAPE.default} onClick={p.onRetry} overrides={{ BaseButton: { style: { minHeight: '44px', marginTop: '12px' } } }}>Retry route data</Button>
       </div>
@@ -675,13 +697,19 @@ function RailContent(p: RailProps) {
   }
   const hasLinked = cat.counts['linked-open'] + cat.counts['linked-loop'] > 0;
   const liveFavorites = [...p.favorites].filter((k) => cat.byKey.has(k)).length;
-  const stale = [...p.favorites].filter((k) => !cat.byKey.has(k));
-  const staleNames = stale.map((k) => p.favoriteNames[k]).filter(Boolean);
+  const stale = [...p.favorites].filter((k) => belongsToCountry(k, cat.country) && !cat.byKey.has(k));
+  const staleNames = stale.map((k) => p.favoriteNames[k]).filter(Boolean).map(displayName);
   return (
     <div>
       {load.problems.length ? (
         <div style={{ marginTop: 12 }}>
           <Notice tone="warning">{load.problems.join(' ')}</Notice>
+          {load.retryable ? (
+            <Button shape={SHAPE.default} onClick={p.onRetry}
+              overrides={{ BaseButton: { style: { minHeight: '44px', marginTop: '12px' } } }}>
+              Retry route data
+            </Button>
+          ) : null}
         </div>
       ) : null}
       {p.collection ? (
@@ -707,6 +735,7 @@ function RailContent(p: RailProps) {
       ) : (
         <>
           <DiscoveryControls
+            country={cat.country}
             filters={filters}
             onChange={p.setFilters}
             onSearchChosen={p.onSearchChosen}
@@ -818,55 +847,61 @@ function RailContent(p: RailProps) {
         </Disclosure>
       ) : null}
       <footer style={{ marginTop: 24, fontSize: 12, lineHeight: '20px', color: tokens.hairlineMid }}>
+        {cat.country.coverage ? <p>{cat.country.coverage}</p> : null}
         <p style={{ margin: '0 0 8px' }}>{SAFETY_NOTE}</p>
         <p style={{ margin: 0 }}>
-          Road data snapshot from {formatDate(cat.meta.routesGenerated)}. Route data © OpenStreetMap contributors (ODbL), Rijkswaterstaat
-          WKD &amp; NDW, AHN/PDOK, CBS. Map tiles © OpenFreeMap, OpenMapTiles, OpenStreetMap contributors.
+          Road data snapshot from {formatDate(cat.meta.routesGenerated, cat.country.timezone)}. Route data <SourceNotice country={cat.country} />.
+          {' '}Map tiles © OpenFreeMap, OpenMapTiles, OpenStreetMap contributors.
         </p>
       </footer>
     </div>
   );
 }
 
-function AboutText({ cat }: { cat: Catalogue | null }) {
+function AboutText({ cat, country }: { cat: Catalogue | null; country: Country }) {
+  const hasCircuitDistances = cat?.routes.some((r) => r.catalog === 'circuit'
+    && country.homes.some((home) => r.distanceKm?.[home] != null));
   return (
     <div style={{ fontSize: 16, lineHeight: '24px' }}>
       <p>
-        FunRoads scores Dutch roads with a fixed rubric (corners, flow, quiet, speed fit, elevation, surface, scenery) using
-        pinned OpenStreetMap, speed-limit, traffic and elevation snapshots. It is not live road, closure, weather or traffic data.
+        FunRoads scores roads in {country.name} with a fixed rubric (corners, flow, quiet, speed fit, elevation, surface, scenery) using{' '}
+        {country.sourceSummary}. It is not live road, closure, weather or traffic data.
       </p>
+      {country.coverage ? <p><strong>{country.coverage}</strong></p> : null}
       {cat ? (
         <ul>
-          <li>{cat.counts.circuit} national circuits (40–120 km target)</li>
+          <li>{cat.counts.circuit} {country.coverage ? 'pilot' : 'national'} circuits (40–120 km target)</li>
           <li>
             {cat.counts['linked-open'] + cat.counts['linked-loop']} linked rides: {cat.counts['linked-open']} end elsewhere,{' '}
             {cat.counts['linked-loop']} return to start
           </li>
           <li>{cat.counts.sprint.toLocaleString('en-GB')} reversible sprints</li>
           <li>
-            Road data snapshot from {formatDate(cat.meta.routesGenerated)} (circuits, sprints) and{' '}
-            {formatDate(cat.meta.linkedGenerated)} (linked rides). Catalogues can be rebuilt from the same snapshot, which can
+            Road data snapshot from {formatDate(cat.meta.routesGenerated, country.timezone)} (circuits, sprints) and{' '}
+            {formatDate(cat.meta.linkedGenerated, country.timezone)} (linked rides). Catalogues can be rebuilt from the same snapshot, which can
             remove saved routes.
           </li>
         </ul>
       ) : null}
       <p>
-        <strong>Nearby</strong> is a 100 km straight-line view around Zaandam or Haarlem. It is not driving distance or reach
-        time, and it never limits which roads were mined. National circuits have no straight-line distance in the data, and
-        their reach time is modeled from Zaandam only.
+        <strong>Nearby</strong> uses your chosen straight-line radius around {country.homes.join(' or ')}. It is not driving distance or reach
+        time, and it never limits which roads were mined.
+        {cat && cat.counts.circuit > 0 && !hasCircuitDistances ? ' Circuits have no straight-line distance in this catalogue.' : ''}
+        {country.reachOrigin ? ` Circuit reach time is modeled from ${country.reachOrigin} only.` : ''}
+        {!country.reachOrigin ? ' Home-to-start driving times are not modeled.' : ''}
       </p>
       <p>
-        <strong>Access</strong> was sampled for weekday and weekend departures at 08:00 and 20:00 in summer and autumn. These are
-        examples: check current signs and restrictions. Route start and end points are road-network points, not checked
-        parking, meeting or turning places. The quiet score is a static traffic model, not live or time-specific traffic.
+        <strong>Access</strong> is based on sampled departures in {country.timezone}, not live permission.
+        Check current signs and restrictions. Route start and end points are road-network points, not checked
+        parking, meeting or turning places. {country.quietDescription}
       </p>
       <p>
         <strong>Not available yet:</strong> town or postcode search and place names for linked-ride clusters.
-        Elevation charts appear only where cached AHN samples exist.
+        Elevation charts appear only where the catalogue contains elevation samples.
       </p>
       <p style={{ fontSize: 14 }}>
-        Sources: © OpenStreetMap contributors (ODbL); Rijkswaterstaat WKD and NDW; AHN via PDOK; CBS; roadcurvature.com for
-        calibration. Map tiles by OpenFreeMap using OpenMapTiles. Interface built with Base Web and the open Inter typeface.
+        Sources: <SourceNotice country={country} />. Map tiles by OpenFreeMap using OpenMapTiles.
+        Interface built with Base Web and the open Inter typeface.
       </p>
     </div>
   );

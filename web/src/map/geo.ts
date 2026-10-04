@@ -43,7 +43,7 @@ export const DASH: Record<Kind, number[] | null> = {
   sprint: [0.1, 2],
 };
 
-function haversineKm(a: LonLat, b: LonLat): number {
+export function haversineKm(a: LonLat, b: LonLat): number {
   const R = 6371;
   const toRad = Math.PI / 180;
   const dLat = (b[1] - a[1]) * toRad;

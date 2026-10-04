@@ -3,7 +3,7 @@ import vm from 'node:vm';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-const entries = ['index.html', 'assets/app.js', 'data/routes.json', 'data/linked.json']
+const entries = ['index.html', 'assets/app.js', 'data/nl/routes.json', 'data/nl/linked.json']
   .map((file) => ({ file, integrity: 'sha256-test' }));
 const scope = 'https://example.org/funroads/';
 const prefix = `funroads:${scope}:`;
@@ -42,11 +42,11 @@ function worker(fail = false) {
     handlers.fetch({ request: { url, mode, method }, respondWith: (promise) => { result = promise; } });
     return result;
   };
-  const offlineStatus = () => {
+  const offlineStatus = (country = 'nl') => {
     let result;
     let response;
     handlers.message({
-      data: { type: 'OFFLINE_STATUS' },
+      data: { type: 'OFFLINE_STATUS', country },
       ports: [{ postMessage: (value) => { response = value; } }],
       waitUntil: (promise) => { result = promise; },
     });
@@ -80,18 +80,27 @@ test('serves project-path navigations and catalogues offline, not external tiles
   await w.lifecycle('install');
   w.requests.length = 0;
   assert.equal((await w.request(`${scope}?installed=1`, 'navigate')).url, `${scope}index.html`);
-  assert.equal((await w.request(`${scope}data/routes.json`)).url, `${scope}data/routes.json`);
+  assert.equal((await w.request(`${scope}data/nl/routes.json`)).url, `${scope}data/nl/routes.json`);
   assert.equal(w.requests.length, 0);
   assert.equal(w.request('https://tiles.openfreemap.org/style'), undefined);
   assert.equal(w.request('https://example.org/other/', 'navigate'), undefined);
-  assert.equal(w.request(`${scope}data/routes.json`, 'cors', 'POST'), undefined);
+  assert.equal(w.request(`${scope}data/nl/routes.json`, 'cors', 'POST'), undefined);
 });
 
 test('reports offline readiness only while every versioned entry exists', async () => {
   const w = worker();
-  assert.deepEqual(JSON.parse(JSON.stringify(await w.offlineStatus())), { type: 'OFFLINE_STATUS', ready: false, version: 'new' });
+  assert.deepEqual(JSON.parse(JSON.stringify(await w.offlineStatus())), { type: 'OFFLINE_STATUS', country: 'nl', ready: false, version: 'new' });
   await w.lifecycle('install');
   assert.equal((await w.offlineStatus()).ready, true);
-  w.stores.get(`${prefix}new`).delete(`${scope}data/linked.json`);
+  w.stores.get(`${prefix}new`).delete(`${scope}data/nl/linked.json`);
   assert.equal((await w.offlineStatus()).ready, false);
+});
+
+test('does not claim an unpublished country is available offline', async () => {
+  const w = worker();
+  await w.lifecycle('install');
+  assert.equal((await w.offlineStatus('nl')).ready, true);
+  assert.equal((await w.offlineStatus('ee')).ready, false);
+  assert.equal(w.request(`${scope}data/ee/routes.json`), undefined);
+  assert.equal((await w.request(`${scope}?country=ee`, 'navigate')).url, `${scope}index.html`);
 });

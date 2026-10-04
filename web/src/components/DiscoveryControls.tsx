@@ -6,6 +6,40 @@ import { activePills, clearPill, PROFILE_LABEL, resetFilters, ROUTE_TYPES, selec
 import { HomeChoices, ProfileChoices, RoadSearch, SORTS, selectInputOverrides, type ControlProps } from './Controls';
 import { Caption, KindGlyph, ProfileIcon, StatIcon } from './ui';
 import { tokens } from '../theme';
+import { COUNTRIES, countryHref, type Country } from '../data/countries';
+
+export function CountryPicker({ country }: { country: Country }) {
+  return (
+    <div style={{ pointerEvents: 'auto' }}>
+      <StatefulPopover placement={PLACEMENT.bottomLeft} focusLock returnFocus
+        overrides={{ Body: { style: { borderRadius: '16px' } }, Inner: { style: { backgroundColor: tokens.canvas, borderRadius: '16px' } } }}
+        content={() => (
+          <nav aria-label="Choose country" style={{ display: 'grid', gap: 4, padding: 8, width: 'min(240px, calc(100vw - 32px))' }}>
+            {COUNTRIES.map((option) => (
+              <Button key={option.id} $as="a" href={countryHref(option.id)}
+                aria-current={option.id === country.id ? 'page' : undefined}
+                kind={option.id === country.id ? KIND.primary : KIND.secondary} shape={SHAPE.default} size={SIZE.compact}
+                overrides={{ BaseButton: { style: { minHeight: '44px', justifyContent: 'flex-start' } } }}>
+                {option.name}
+              </Button>
+            ))}
+          </nav>
+        )}>
+        <Button kind={KIND.tertiary} shape={SHAPE.default} size={SIZE.compact}
+          aria-label={`Change country: ${country.name}`}
+          overrides={{ BaseButton: { props: { className: 'fr-country-button' }, style: {
+            minHeight: '44px', fontSize: '12px', fontWeight: 500, lineHeight: '16px',
+            padding: '0', alignItems: 'flex-start',
+          } } }}>
+          <span>
+            {country.name}
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M4 6l4 4 4-4" /></svg>
+          </span>
+        </Button>
+      </StatefulPopover>
+    </div>
+  );
+}
 
 export function DiscoveryControls(p: ControlProps & { onOpenFilters: () => void; showSearch?: boolean; favoritesOnly: boolean; onFavoritesOnly: (enabled: boolean) => void }) {
   const { filters: f, onChange } = p;
@@ -20,7 +54,7 @@ export function DiscoveryControls(p: ControlProps & { onOpenFilters: () => void;
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <StatefulPopover placement={PLACEMENT.bottomLeft} focusLock returnFocus overrides={popoverOverrides}
           content={({ close }) => <div style={{ width: 'min(264px, calc(100vw - 32px))', padding: 12, boxSizing: 'border-box' }}>
-            <HomeChoices filters={f} onChange={(next) => { onChange(next); close(); }} />
+            <HomeChoices filters={f} country={p.country} onChange={(next) => { onChange(next); close(); }} />
           </div>}>
           <Button kind={KIND.secondary} shape={SHAPE.default} size={SIZE.compact} aria-label={`Change home: ${f.home}`}
             overrides={{ BaseButton: { style: { minHeight: '44px', paddingLeft: '8px', paddingRight: '8px', gap: '4px', fontSize: '12px', flexShrink: 0 } } }}>

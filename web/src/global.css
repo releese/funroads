@@ -197,6 +197,32 @@ body {
   display: grid;
   place-items: center;
 }
+.fr-country-button {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.fr-country-button > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  text-underline-offset: 3px;
+}
+@media (hover: hover) {
+  .fr-country-button:hover > span {
+    text-decoration: underline;
+  }
+}
+.fr-country-button:active > span {
+  text-decoration: underline;
+}
+.fr-country-button:focus-visible {
+  outline: none;
+}
+.fr-country-button:focus-visible > span {
+  outline: 2px solid #000;
+  outline-offset: 2px;
+}
 .fr-sheet-handle {
   display: flex;
   align-items: center;

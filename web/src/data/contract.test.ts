@@ -73,8 +73,7 @@ describe.skipIf(!hasData)('pinned national data', () => {
 
   it('keeps the compact phone navigation link within three waypoints', () => {
     for (const r of cat.routes) {
-      if (!r.gmapsCompact) continue;
-      const stops = new URL(r.gmapsCompact).searchParams.get('waypoints');
+      const stops = new URL(r.navigation.compact!.href).searchParams.get('waypoints');
       expect(stops ? stops.split('|').length : 0).toBeLessThanOrEqual(3);
     }
   });
@@ -158,11 +157,18 @@ describe.skipIf(!hasData)('pinned national data', () => {
     }
   });
 
-  it('exposes a valid Google Maps link on every route, line-derived except pipeline circuits', () => {
+  it('requests each whole route with one ordered line-derived Maps link per layout', () => {
     for (const r of cat.routes) {
-      expect(r.gmaps, `${r.name} should have a navigation link`).not.toBeNull();
-      expect(r.gmaps!.startsWith('https://www.google.com/maps/dir/')).toBe(true);
-      if (r.catalog !== 'circuit') expect(r.gmapsSource).toBe('line');
+      for (const [layout, budget] of [['compact', 3], ['desktop', 9]] as const) {
+        const handover = r.navigation[layout]!;
+        expect(handover).not.toBeNull();
+        expect(handover.points[0].point).toEqual(r.line[0]);
+        expect(handover.points.at(-1)!.point).toEqual(r.line.at(-1));
+        expect(handover.points.length - 2).toBeLessThanOrEqual(budget);
+        expect(handover.href.length).toBeLessThanOrEqual(2048);
+        expect(handover.href).toMatch(/^https:\/\/www.google.com\/maps\/dir\//);
+        handover.points.slice(1).forEach((point, i) => expect(point.km).toBeGreaterThan(handover.points[i].km));
+      }
     }
   });
 });

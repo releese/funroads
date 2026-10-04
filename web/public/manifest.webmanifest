@@ -1,8 +1,8 @@
 {
   "id": "./",
-  "name": "FunRoads NL",
+  "name": "FunRoads",
   "short_name": "FunRoads",
-  "description": "Discover enjoyable Dutch roads, circuits, linked rides and sprints.",
+  "description": "Discover enjoyable roads, circuits, linked rides and sprints.",
   "lang": "en",
   "start_url": "./",
   "scope": "./",

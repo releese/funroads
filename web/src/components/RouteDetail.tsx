@@ -5,11 +5,15 @@ import { DIMENSIONS } from '../data/raw';
 import type { RouteView } from '../data/model';
 import { KIND_SHAPE, similarRoutes, stopPin } from '../data/model';
 import { formatDate, km, pct } from '../data/format';
-import { Disclosure, KindLabel, Meter, Notice, RouteStats, SectionTitle, StatIcon } from './ui';
+import { Disclosure, KindLabel, Meter, Notice, RouteStats, SectionTitle, StatIcon, SourceNotice } from './ui';
 import { ProfileChart, limitMix } from './ProfileChart';
 import { tokens } from '../theme';
+import { DEFAULT_COUNTRY, type Country } from '../data/countries';
+import { useMediaQuery } from '../hooks';
+import { MQ } from '../theme';
 
 interface Props {
+  country?: Country;
   route: RouteView;
   home: Home;
   /** All loaded routes, for the similar-routes rail. */
@@ -35,13 +39,12 @@ const DIM_LABEL: Record<(typeof DIMENSIONS)[number], string> = {
 };
 
 const FLAG_LABEL: Record<string, string> = {
-  far_from_home: 'More than 60 min modeled drive from Zaandam',
   out_and_back: 'Return leg mostly retraces the outbound leg',
   length_outside_ideal: 'Length is outside the ideal 40–120 km',
-  home_unreachable: 'No modeled drive from Zaandam',
 };
 
 const PROFILE_NAME: Record<LinkedProfile, string> = { scenic: 'scenic', technical: 'technical', quiet: 'quiet' };
+const MAPS_CAVEAT = 'Google may treat requested points as stops, snap them to another road or reroute between them. Shape-aware points do not guarantee exact route fidelity and are not driving instructions.';
 
 export function groupStops<T extends { note: string }>(stops: T[]): [string, number, T][] {
   const m = new Map<string, [number, T]>();
@@ -66,17 +69,18 @@ const headerIconStyle = {
 };
 
 export const RouteDetail = forwardRef<HTMLHeadingElement, Props>(function RouteDetail(
-  { route: r, home, allRoutes, generated, excludedReasons, favorite, onClose, onOpen, onToggleFavorite, onCursorKm },
+  { route: r, home, allRoutes, generated, excludedReasons, favorite, onClose, onOpen, onToggleFavorite, onCursorKm, country = DEFAULT_COUNTRY },
   headingRef,
 ) {
   const dist = r.distanceKm?.[home];
-  const gmaps = r.gmaps;
+  const compact = useMediaQuery(MQ.mobile);
+  const handover = compact ? r.navigation.compact : r.navigation.desktop;
   const c = r.circuit;
   const detail = r.profile;
   const mix = limitMix(detail);
   const similar = similarRoutes(r, allRoutes);
   const badges = [
-    ...r.profileLists.map((p) => `Top 12 ${PROFILE_NAME[p]} linked ride nationally`),
+    ...r.profileLists.map((p) => `Top 12 ${PROFILE_NAME[p]} linked ride ${country.coverage ? 'within the pilot' : 'nationally'}`),
     ...(r.nearbyLists[home] ?? []).map((p) => `Top 12 ${PROFILE_NAME[p]} within 100 km of ${home}`),
   ];
 
@@ -130,7 +134,10 @@ export const RouteDetail = forwardRef<HTMLHeadingElement, Props>(function RouteD
             {groupStops(detail.stops).map(([note, count, first]) => (
               <li key={note}>{note} ({count > 1 ? `${count} places` : '1 place'}, “{stopPin(first.type)}” pin on the map)</li>
             ))}
-            {c?.flags.map((flag) => <li key={flag}>{FLAG_LABEL[flag] ?? flag}</li>)}
+            {c?.flags.map((flag) => <li key={flag}>{flag === 'far_from_home'
+              ? `More than 60 min modeled drive from ${c.reachOrigin ?? 'the build origin'}`
+              : flag === 'home_unreachable' ? `No modeled drive from ${c.reachOrigin ?? 'the build origin'}`
+              : FLAG_LABEL[flag] ?? flag}</li>)}
           </ul>
         </>
       ) : null}
@@ -185,7 +192,7 @@ export const RouteDetail = forwardRef<HTMLHeadingElement, Props>(function RouteD
           </ul>
           {mix.length ? (
             <>
-              <p className="fr-route-stat" style={{ margin: '16px 0 8px', fontSize: 14, fontWeight: 500 }}><StatIcon name="limit" />Posted limits</p>
+              <p className="fr-route-stat" style={{ margin: '16px 0 8px', fontSize: 14, fontWeight: 500 }}><StatIcon name="limit" />{country.id === 'ee' ? 'Mapped limits' : 'Posted limits'}</p>
               <ul style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(88px, 1fr))', gap: 8, listStyle: 'none', padding: 0, margin: 0 }}>
                 {mix.map((limit) => (
                   <li key={limit.lim} style={{ display: 'grid', gap: 4, padding: 8, borderRadius: 8, backgroundColor: tokens.canvasSofter }}>
@@ -206,15 +213,17 @@ export const RouteDetail = forwardRef<HTMLHeadingElement, Props>(function RouteD
       </Disclosure>
 
       <Disclosure title="Route facts and sources">
+        {country.coverage ? <p style={{ fontSize: 14 }}>{country.coverage}</p> : null}
+        {country.sourceLinks ? <p style={{ fontSize: 14 }}><SourceNotice country={country} /></p> : null}
         <dl style={{ margin: 0 }}>
           <Row label="Fun kilometres">{km(r.funKm)}</Row>
           {r.connectorShare != null ? <Row label="Lower-scored connector roads">{pct(r.connectorShare)} of distance</Row> : null}
           {r.retraceShare != null ? <Row label="Driven twice, once each way">{r.retraceShare < 0.01 ? 'None' : `${pct(r.retraceShare)} of distance`}</Row> : null}
-          {c ? <Row label="Modeled reach from Zaandam">{c.reachMinFromZaandam != null ? `~${c.reachMinFromZaandam} min` : 'Unknown'}</Row> : null}
+          {c?.reachOrigin ? <Row label={`Modeled reach from ${c.reachOrigin}`}>{c.reachMin != null ? `~${c.reachMin} min` : 'Unknown'}</Row> : null}
           {detail.climbM != null ? <Row label="Climb">+{detail.climbM} m</Row> : null}
           {detail.cornerCount ? <Row label="Corners">{detail.cornerCount.tight} tight · {detail.cornerCount.sweet} sweet-spot · {detail.cornerCount.flowing} flowing</Row> : null}
           {r.clusterId != null ? <Row label="Local cluster">#{r.clusterId} (unnamed)</Row> : null}
-          <Row label="Road data snapshot">{formatDate(generated)}</Row>
+          <Row label="Road data snapshot">{formatDate(generated, country.timezone)}</Row>
         </dl>
       </Disclosure>
 
@@ -277,8 +286,12 @@ export const RouteDetail = forwardRef<HTMLHeadingElement, Props>(function RouteD
         </Disclosure>
       ) : null}
       </div>
-      {gmaps ? <footer className="fr-detail-navigation">
-        <Button $as="a" href={gmaps} target="_blank" rel="noopener noreferrer" aria-label="Open in Google Maps" title="Open in Google Maps" kind={BKIND.secondary} shape={SHAPE.default} size={SIZE.compact}
+      {handover ? <footer className="fr-detail-navigation">
+        <p id="maps-caveat" style={{ margin: '0 0 8px', fontSize: 12, lineHeight: '18px', color: tokens.hairlineMid }}>
+          {handover.limited ? 'Google Maps point limits mean some route detail may not carry over. ' : ''}{MAPS_CAVEAT}
+        </p>
+        <Button $as="a" href={handover.href} target="_blank" rel="noopener noreferrer" aria-label="Open in Google Maps"
+          aria-describedby="maps-caveat" title="Open in Google Maps" kind={BKIND.secondary} shape={SHAPE.default} size={SIZE.compact}
           overrides={{ BaseButton: { style: { minHeight: '44px', gap: '8px', width: '100%' } } }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M21 3L3 10l7 3 3 7 8-17zM10 13L21 3" /></svg>
           Navigate

@@ -4,21 +4,23 @@ import react from '@vitejs/plugin-react';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
+import { catalogueFiles, publishedCatalogues, type CatalogueFile } from './catalogues.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
-const cacheDir = path.join(root, 'data', 'cache');
 const outDir = path.join(root, 'site');
-const DATA_FILES = ['routes.json', 'linked.json'];
 
 function funroadsData(): Plugin {
   return {
     name: 'funroads-data',
     configureServer(server) {
+      const files: CatalogueFile[] = catalogueFiles(root);
       server.middlewares.use((req, res, next) => {
         const url = (req.url ?? '').split('?')[0];
-        const name = url.startsWith('/data/') ? url.slice(6) : '';
-        if (DATA_FILES.includes(name)) {
-          const file = path.join(cacheDir, name);
+        // Existing developer links remain valid; the app uses country paths.
+        const requested = /^\/data\/(routes|linked)\.json$/.test(url) ? url.replace('/data/', '/data/nl/') : url;
+        const entry = files.find((item) => `/${item.file}` === requested);
+        if (entry) {
+          const file = entry.source;
           if (!fs.existsSync(file)) {
             res.statusCode = 404;
             res.end('missing');
@@ -33,16 +35,16 @@ function funroadsData(): Plugin {
       });
     },
     writeBundle(_, bundle) {
-      const dataOut = path.join(outDir, 'data');
-      fs.mkdirSync(dataOut, { recursive: true });
-      for (const name of DATA_FILES) {
-        const src = path.join(cacheDir, name);
-        fs.copyFileSync(src, path.join(dataOut, name));
+      const catalogues: CatalogueFile[] = publishedCatalogues(root);
+      for (const { source, file } of catalogues) {
+        const destination = path.join(outDir, file);
+        fs.mkdirSync(path.dirname(destination), { recursive: true });
+        fs.copyFileSync(source, destination);
       }
       const files = [
         ...Object.keys(bundle),
         'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png',
-        ...DATA_FILES.map((name) => `data/${name}`),
+        ...catalogues.map(({ file }) => file),
       ].sort();
       const entries = files.map((file) => ({
         file,

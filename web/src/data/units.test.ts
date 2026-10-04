@@ -3,8 +3,6 @@ import { DataError, validateLinkedDoc, validateRoutesDoc } from './validate';
 import {
   buildCatalogue,
   buildCollections,
-  COMPACT_WAYPOINTS,
-  gmapsFromLine,
   QUIET_WHY,
   roadKey,
   similarRoutes,
@@ -16,9 +14,10 @@ import { activePills, applyFilters, clearPill, DEFAULT_FILTERS, resetFilters, ty
 import { loadFavoriteNames, loadFavorites, saveFavoriteNames, saveFavorites, toggleFavorite } from './favorites';
 import { buildSearchIndex, searchSuggestions } from './search';
 import { CIRCUIT_INK, OVERLAP_MIN_SHARE, spatialInfo, TINTS, type SpatialItem } from './spatial';
-import { formatWindow } from './format';
+import { displayName, formatWindow } from './format';
 import { visibleLines } from '../map/geo';
 import { groupStops } from '../components/RouteDetail';
+import { mapsHandover } from './gmaps';
 
 const score = { corners: 0.5, flow: 0.5, quiet: 0.5, speed: 0.5, elevation: 0.5, surface: 0.5, scenery: 0.5 };
 const sprint = (id: string, extra: Record<string, unknown> = {}) => ({
@@ -173,6 +172,42 @@ it('reports whether favorite changes could actually be persisted', () => {
 });
 
 describe('formatting', () => {
+  it('uses arrows for place names and leaves existing arrows, hyphens and ranges alone', () => {
+    expect(displayName('Tagavere — Vidruka → Oru — Tagavere Loop')).toBe('Tagavere → Vidruka → Oru → Tagavere Loop');
+    expect(displayName('A—B — C')).toBe('A → B → C');
+    expect(displayName('Harju-Risti → Riguldi, 40–120 km ~60 min')).toBe('Harju-Risti → Riguldi, 40–120 km ~60 min');
+  });
+
+  it('normalizes names once for every route surface without changing source records or IDs', () => {
+    const { doc } = validateRoutesDoc({
+      routes: [],
+      sprints: [sprint('a', { name: 'A — B Sprint', roads: [{ name: 'A — B', km: 5, fun: 60 }] })],
+      areas: [{ id: 'area-a', name: 'A — B area', lat: 52.4, lon: 4.8 }],
+      toproads: [{ name: 'A — B', fun: .6, line: [[4.8, 52.4], [4.81, 52.41]], windows: [] }],
+    });
+    const linked = validateLinkedDoc({
+      rides: [{
+        id: 'l1', type: 'open', name: 'A — B → C Ride', km: 5, fun_km: 3,
+        line: [[4.8, 52.4], [4.81, 52.41]], score: { ...score, total: 60 },
+        roads: [], anchor_roads: ['A — B', 'C'], windows: [],
+      }],
+    }).doc;
+    const original = structuredClone({ doc, linked });
+    const cat = buildCatalogue(doc, linked);
+    expect({ doc, linked }).toEqual(original);
+    expect(cat.byKey.get('sprint:a')!.name).toBe('A → B Sprint');
+    expect(cat.byKey.get('sprint:a')!.roads[0].name).toBe('A → B');
+    expect(cat.byKey.get('linked:l1')!.name).toBe('A → B → C Ride');
+    expect(cat.byKey.get('linked:l1')!.anchorRoads).toEqual(['A → B', 'C']);
+    expect(cat.areas[0].name).toBe('A → B area');
+    expect(cat.toproads[0].name).toBe('A → B');
+    const index = buildSearchIndex(cat);
+    const legacyHit = searchSuggestions(index, 'A — B').find((hit) => hit.selection.kind === 'road')!;
+    expect(legacyHit.label).toBe('A → B');
+    expect(searchSuggestions(index, 'A → B')).toEqual(searchSuggestions(index, 'A — B'));
+    expect(applyFilters(cat.routes, { ...DEFAULT_FILTERS, search: legacyHit.selection }).results).toHaveLength(2);
+  });
+
   it('formats sample windows independent of viewer time zone', () => {
     expect(formatWindow('2026-09-28 08:00')).toBe('Mon 28 Sep 2026, 08:00');
     expect(formatWindow('not a window')).toBe('not a window');
@@ -196,24 +231,24 @@ describe('formatting', () => {
 describe('navigation links from route lines', () => {
   const line: [number, number][] = Array.from({ length: 20 }, (_, i) => [4.8 + i * 0.01, 52.4 + i * 0.005]);
 
-  it('builds a loop link returning to the start', () => {
-    const url = new URL(gmapsFromLine(line, true)!);
+  it('builds a whole-loop link returning to the start', () => {
+    const url = new URL(mapsHandover(line, true, 9)!.href);
     expect(url.origin).toBe('https://www.google.com');
     expect(url.pathname).toBe('/maps/dir/');
     const p = url.searchParams;
-    expect(p.get('origin')).toBe(p.get('destination'));
+    expect(p.get('destination')).toBe('52.4,4.8');
     expect(p.get('travelmode')).toBe('driving');
-    expect(p.get('waypoints')!.split('|')).toHaveLength(8);
+    expect(p.get('waypoints')?.split('|').length ?? 0).toBeLessThanOrEqual(9);
   });
 
-  it('builds a one-way link with the requested waypoint count', () => {
-    const url = new URL(gmapsFromLine(line, false, 3)!);
-    expect(url.searchParams.get('waypoints')!.split('|')).toHaveLength(3);
+  it('builds a one-way link within the requested waypoint budget', () => {
+    const url = new URL(mapsHandover(line, false, 3)!.href);
+    expect(url.searchParams.get('waypoints')?.split('|').length ?? 0).toBeLessThanOrEqual(3);
     expect(url.searchParams.get('origin')).not.toBe(url.searchParams.get('destination'));
   });
 
   it('refuses degenerate lines', () => {
-    expect(gmapsFromLine([[4.8, 52.4]], true)).toBeNull();
+    expect(mapsHandover([[4.8, 52.4]], true, 9)).toBeNull();
   });
 
   it('spaces waypoints by distance, not by vertex count', () => {
@@ -223,9 +258,9 @@ describe('navigation links from route lines', () => {
       [4.9, 52.4],
       [4.9 + 0.0001, 52.4],
     ];
-    const wp = new URL(gmapsFromLine(bunched, false, 3)!).searchParams.get('waypoints')!.split('|');
+    const wp = mapsHandover(bunched, false, 3)!.points.slice(1).map((p) => p.point);
     // Vertex spacing would put all three inside the bunch (lon < 4.81).
-    expect(wp.filter((p) => Number(p.split(',')[1]) > 4.81).length).toBeGreaterThan(0);
+    expect(wp.filter((p) => p[0] > 4.81).length).toBeGreaterThan(0);
   });
 
   it('offers a phone link within the mobile waypoint limit for every route type', () => {
@@ -234,12 +269,12 @@ describe('navigation links from route lines', () => {
     });
     const cat = buildCatalogue(validateRoutesDoc({ routes: [], sprints: [sprint('a')] }).doc, doc);
     for (const r of cat.routes) {
-      const n = new URL(r.gmapsCompact!).searchParams.get('waypoints')?.split('|').length ?? 0;
-      expect(n).toBeLessThanOrEqual(COMPACT_WAYPOINTS);
+      const n = new URL(r.navigation.compact!.href).searchParams.get('waypoints')?.split('|').length ?? 0;
+      expect(n).toBeLessThanOrEqual(3);
     }
   });
 
-  it('prefers a valid pipeline link, else derives from the line', () => {
+  it('uses the same line-derived handover regardless of pipeline links', () => {
     const c = {
       id: 'c1',
       name: 'Circuit',
@@ -255,12 +290,10 @@ describe('navigation links from route lines', () => {
     };
     const withLink = validateRoutesDoc({ routes: [{ ...c, links: { gmaps: 'https://www.google.com/maps/dir/52.1,4.8/52.2,4.9' } }], sprints: [] });
     const r1 = buildCatalogue(withLink.doc, null).routes[0];
-    expect(r1.gmaps).toBe('https://www.google.com/maps/dir/52.1,4.8/52.2,4.9');
-    expect(r1.gmapsSource).toBe('pipeline');
     const withoutLink = validateRoutesDoc({ routes: [c], sprints: [] });
     const r2 = buildCatalogue(withoutLink.doc, null).routes[0];
-    expect(r2.gmaps).toContain('https://www.google.com/maps/dir/?');
-    expect(r2.gmapsSource).toBe('line');
+    expect(r1.navigation).toEqual(r2.navigation);
+    expect(r1.key).toBe(r2.key);
   });
 
   it('gives linked rides and sprints line-derived links', () => {
@@ -281,10 +314,9 @@ describe('navigation links from route lines', () => {
     });
     const cat = buildCatalogue(validateRoutesDoc({ routes: [], sprints: [sprint('a')] }).doc, doc);
     const loop = cat.byKey.get('linked:l1')!;
-    expect(loop.gmapsSource).toBe('line');
-    expect(new URL(loop.gmaps!).searchParams.get('origin')).toBe(new URL(loop.gmaps!).searchParams.get('destination'));
+    expect(loop.navigation.desktop!.points[0].point).toEqual(loop.navigation.desktop!.points.at(-1)!.point);
     const sp = cat.byKey.get('sprint:a')!;
-    expect(sp.gmapsSource).toBe('line');
+    expect(sp.navigation.desktop!.points[0].point).not.toEqual(sp.navigation.desktop!.points.at(-1)!.point);
   });
 });
 

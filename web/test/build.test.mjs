@@ -3,6 +3,8 @@ import { createHash } from 'node:crypto';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
+import { publishedCatalogues } from '../catalogues.mjs';
+import { fileURLToPath } from 'node:url';
 
 const site = new URL('../../site/', import.meta.url);
 test('publishes only current build files and a complete, matching offline version', () => {
@@ -24,11 +26,13 @@ test('publishes only current build files and a complete, matching offline versio
     assert.equal(integrity, `sha256-${createHash('sha256').update(bytes).digest('base64')}`);
     assert(!file.includes('demo') && !file.endsWith('.md'));
   }
-  for (const file of ['routes.json', 'linked.json']) {
-    assert.deepEqual(readFileSync(new URL(`data/${file}`, site)),
-      readFileSync(new URL(`../../data/cache/${file}`, import.meta.url)));
+  for (const { file, source } of publishedCatalogues(fileURLToPath(new URL('../../', import.meta.url)))) {
+    assert.deepEqual(readFileSync(new URL(file, site)), readFileSync(source));
+    assert(context.entries.some((entry) => entry.file === file));
   }
   const manifest = JSON.parse(readFileSync(new URL('manifest.webmanifest', site), 'utf8'));
+  assert.equal(manifest.name, 'FunRoads');
+  assert.equal(manifest.short_name, 'FunRoads');
   assert.equal(manifest.start_url, './');
   assert.equal(manifest.scope, './');
   assert.equal(manifest.display, 'standalone');
@@ -39,6 +43,7 @@ test('publishes only current build files and a complete, matching offline versio
     assert.equal(bytes.readUInt32BE(20), size);
   }
   const html = readFileSync(new URL('index.html', site), 'utf8');
+  assert(html.includes('<title>FunRoads</title>'));
   assert(html.includes('href="./manifest.webmanifest"'));
   assert(html.includes('src="./assets/'));
 });

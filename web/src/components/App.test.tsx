@@ -6,15 +6,17 @@ import { Provider } from 'styletron-react';
 import { Client } from 'styletron-engine-monolithic';
 import { theme } from '../theme';
 import { validateRoutesDoc } from '../data/validate';
+import { getCountry } from '../data/countries';
 import { App } from './App';
 
 vi.mock('../data/load', () => ({ loadAll: vi.fn() }));
 vi.mock('../map/MapView', () => ({
-  MapView: ({ selected, onBlank, onSelect, onInteract }: { selected: { key: string } | null; onBlank: () => void; onSelect: (key: string) => void; onInteract: () => void }) => (
+  MapView: ({ selected, onBlank, onSelect, onInteract, onStatus }: { selected: { key: string } | null; onBlank: () => void; onSelect: (key: string) => void; onInteract: () => void; onStatus: (status: 'unavailable') => void }) => (
     <div aria-label="Test map">
       <button onClick={() => { onInteract(); onBlank(); }}>Blank map</button>
       <button onClick={() => { onInteract(); onSelect('sprint:test'); }}>Pick route on map</button>
       <button onClick={onInteract}>Overlapping routes on map</button>
+      <button onClick={() => onStatus('unavailable')}>Simulate map failure</button>
       <span data-testid="map-selection">{selected?.key ?? 'none'}</span>
     </div>
   ),
@@ -40,6 +42,7 @@ beforeEach(async () => {
   window.history.replaceState(null, '', '/');
   viewport(true);
   const { loadAll } = await import('../data/load');
+  vi.mocked(loadAll).mockClear();
   vi.mocked(loadAll).mockResolvedValue({ routes: { value: routes, error: null }, linked: { value: null, error: 'No linked data' } });
   HTMLElement.prototype.scrollIntoView = vi.fn();
 });
@@ -53,10 +56,53 @@ function viewport(mobile: boolean, narrow = false) {
 }
 
 function mount() {
-  render(<Provider value={new Client()}><BaseProvider theme={theme}><App dataBase="/" /></BaseProvider></Provider>);
+  return render(<Provider value={new Client()}><BaseProvider theme={theme}><App dataBase="/" /></BaseProvider></Provider>);
 }
 
 describe('responsive interactions', () => {
+  it.each([true, false])('offers one whole-route Maps link without losing detail or browse context (mobile=%s)', async (mobile) => {
+    viewport(mobile);
+    const { loadAll } = await import('../data/load');
+    const longRoutes = validateRoutesDoc({
+      ...routes.doc,
+      sprints: [{ ...routes.doc.sprints[0], name: 'A long route name → With several places → And a final place Sprint',
+        line: [[4.8, 52.4], [5.8, 52.4]], end: { lon: 5.8, lat: 52.4 } }],
+    });
+    vi.mocked(loadAll).mockResolvedValue({ routes: { value: longRoutes, error: null }, linked: { value: null, error: null } });
+    const user = userEvent.setup();
+    mount();
+    await user.click(screen.getByRole('button', { name: 'Browse routes' }));
+    const sheet = document.getElementById('sheet-body')!;
+    sheet.scrollTop = 140;
+    fireEvent.scroll(sheet);
+    await user.click(await screen.findByRole('button', { name: /Sprint Road fun average.*A long route name/ }));
+    await user.click(screen.getByRole('button', { name: 'Details' }));
+    const body = document.querySelector<HTMLElement>('.fr-detail-content')!;
+    body.scrollTop = 220;
+    const navigate = screen.getByRole('link', { name: 'Open in Google Maps' });
+    expect(navigate.closest('footer')).toHaveClass('fr-detail-navigation');
+    const routeLocation = location.href;
+    expect(screen.getByText(/Google may treat requested points as stops/)).toBeVisible();
+    expect(screen.getByText(/point limits mean some route detail may not carry over/)).toBeVisible();
+    expect(navigate).toHaveAttribute('target', '_blank');
+    expect(navigate).toHaveAccessibleDescription(/do not guarantee exact route fidelity/);
+    const url = new URL(navigate.getAttribute('href')!);
+    expect(url.searchParams.get('waypoints')?.split('|').length ?? 0).toBeLessThanOrEqual(mobile ? 3 : 9);
+    expect(url.searchParams.get('origin')).toBe('52.4,4.8');
+    expect(url.searchParams.get('destination')).toBe('52.4,5.8');
+    expect(location.href).toBe(routeLocation);
+    expect(screen.getByTestId('map-selection')).toHaveTextContent('sprint:test');
+    navigate.focus();
+    expect(navigate).toHaveFocus();
+    expect(body.scrollTop).toBe(220);
+    expect(screen.queryByRole('heading', { name: 'Google Maps parts' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Close details' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Close details' }));
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Google Maps parts' })).not.toBeInTheDocument());
+    if (mobile) await user.click(await screen.findByRole('button', { name: 'Back to results' }));
+    expect(sheet.scrollTop).toBe(140);
+  });
+
   it.each([true, false])('keeps shared Browse controls hidden until opened (mobile=%s)', async (mobile) => {
     viewport(mobile);
     const user = userEvent.setup();
@@ -341,5 +387,216 @@ describe('responsive interactions', () => {
     } finally {
       save.mockRestore();
     }
+  });
+});
+
+describe('country catalogue integration', () => {
+  it.each([
+    ['nl', true], ['nl', false], ['ee', true], ['ee', false],
+  ] as const)('supports the same search, home, save and empty-state journey (%s, mobile=%s)', async (id, mobile) => {
+    viewport(mobile);
+    window.history.replaceState(null, '', `/?country=${id}`);
+    const country = getCountry(id);
+    const road = id === 'ee' ? 'Rõngu tee' : 'Duinlustweg';
+    const line = id === 'ee' ? [[26.4, 58.4], [26.41, 58.41]] : routes.doc.sprints[0].line;
+    const key = `${id === 'ee' ? 'ee:' : ''}sprint:test`;
+    const otherSaved = id === 'ee' ? 'sprint:other' : 'ee:sprint:other';
+    localStorage.setItem('funroads:favorites:v1', JSON.stringify([otherSaved]));
+    const countryRoutes = validateRoutesDoc({
+      meta: { country: id, schema_version: 1 }, routes: [],
+      sprints: [{ ...routes.doc.sprints[0], name: `${road} Sprint`, line,
+        start: { lon: line[0][0], lat: line[0][1] }, end: { lon: line[1][0], lat: line[1][1] },
+        roads: [{ ...routes.doc.sprints[0].roads[0], name: road }],
+        distance_km: { [country.homes[0]]: 10, [country.homes[1]]: 20 } }],
+    }, country);
+    expect(countryRoutes.dropped).toEqual([]);
+    const { loadAll } = await import('../data/load');
+    vi.mocked(loadAll).mockResolvedValue({ routes: { value: countryRoutes, error: null }, linked: { value: null, error: null } });
+    const user = userEvent.setup();
+    mount();
+    await user.click(screen.getByRole('button', { name: 'Browse routes' }));
+    const search = await screen.findByRole('combobox', { name: 'Search a road or circuit area' });
+    await user.click(search);
+    await user.type(search, id === 'ee' ? 'rongu' : 'duinlust');
+    await user.click(await screen.findByRole('option', { name: new RegExp(road) }));
+    expect(screen.getByRole('heading', { name: '1 route' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: `Change home: ${country.homes[0]}` }));
+    await user.click(screen.getByRole('radio', { name: country.homes[1] }));
+    await user.click(screen.getByRole('button', { name: `Save ${road} Sprint to favorites` }));
+    expect(new Set(JSON.parse(localStorage.getItem('funroads:favorites:v1')!))).toEqual(new Set([otherSaved, key]));
+    await user.click(screen.getByRole('button', { name: 'Sprints' }));
+    expect(screen.getByText('No routes match these filters.')).toBeVisible();
+    await user.click(within(screen.getByRole('group', { name: 'Active filters' })).getByRole('button', { name: 'Reset filters' }));
+    expect(screen.getByRole('button', { name: `Change home: ${country.homes[1]}` })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: new RegExp(`Sprint Road fun average.*${road}`) }));
+    await user.click(screen.getByRole('button', { name: 'Details' }));
+    expect(await screen.findByText(`Straight-line from ${country.homes[1]}`)).toBeVisible();
+    expect(screen.getByText(`Straight-line from ${country.homes[1]}`).closest('div')).toHaveTextContent('20 km');
+    expect(new URL(screen.getByRole('link', { name: 'Open in Google Maps' }).getAttribute('href')!).searchParams.get('destination')).toBe(`${line[1][1]},${line[1][0]}`);
+    await user.click(screen.getByRole('button', { name: 'Close details' }));
+    expect(new URLSearchParams(location.hash.slice(1)).get('route')).toBe(key);
+  });
+
+  it.each(['nl', 'ee'] as const)('recovers from failed and partial country loading without losing saves (%s)', async (id) => {
+    window.history.replaceState(null, '', `/?country=${id}`);
+    const country = getCountry(id);
+    const saved = ['sprint:test', 'ee:sprint:test'];
+    localStorage.setItem('funroads:favorites:v1', JSON.stringify(saved));
+    const countryRoutes = validateRoutesDoc({ ...routes.doc, meta: { country: id, schema_version: 1 } }, country);
+    const { loadAll } = await import('../data/load');
+    vi.mocked(loadAll).mockResolvedValueOnce({
+      routes: { value: null, error: 'HTTP 503' }, linked: { value: null, error: 'HTTP 503' },
+    }).mockResolvedValueOnce({
+      routes: { value: countryRoutes, error: null }, linked: { value: null, error: 'HTTP 503' },
+    }).mockResolvedValue({
+      routes: { value: countryRoutes, error: null }, linked: { value: null, error: null },
+    });
+    const user = userEvent.setup();
+    mount();
+    await user.click(screen.getByRole('button', { name: 'Browse routes' }));
+    await user.click(await screen.findByRole('button', { name: 'Retry route data' }));
+    expect(await screen.findByRole('heading', { name: '1 route' })).toBeVisible();
+    expect(screen.getByText(/Linked rides could not be loaded/)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Linked' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: `Change country: ${country.name}` })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Retry route data' }));
+    await screen.findByRole('heading', { name: '1 route' });
+    expect(screen.queryByText(/Linked rides could not be loaded/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retry route data' })).not.toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem('funroads:favorites:v1')!)).toEqual(saved);
+  });
+
+  it.each([
+    ['nl', true], ['nl', false], ['ee', true], ['ee', false],
+  ] as const)('offers a keyboard-accessible country picker without touching favorites (%s, mobile=%s)', async (id, mobile) => {
+    viewport(mobile);
+    window.history.replaceState(null, '', `/funroads/?country=${id}&qa=picker`);
+    const saved = ['sprint:test', 'ee:sprint:test'];
+    localStorage.setItem('funroads:favorites:v1', JSON.stringify(saved));
+    const country = getCountry(id);
+    const { loadAll } = await import('../data/load');
+    const countryRoutes = validateRoutesDoc({
+      ...routes.doc, meta: { country: id, schema_version: 1 },
+    }, country);
+    vi.mocked(loadAll).mockResolvedValue({ routes: { value: countryRoutes, error: null }, linked: { value: null, error: null } });
+    const user = userEvent.setup();
+    mount();
+    const picker = await screen.findByRole('button', { name: `Change country: ${country.name}` });
+    expect(within(screen.getByRole('banner')).getByRole('button', { name: `Change country: ${country.name}` })).toBe(picker);
+    expect(document.getElementById('sheet-body')).not.toContainElement(picker);
+    expect(screen.getByRole('button', { name: 'Browse routes' })).toHaveAttribute('aria-expanded', 'false');
+    picker.focus();
+    await user.keyboard('{Enter}');
+    const choices = await screen.findByRole('navigation', { name: 'Choose country' });
+    expect(within(choices).getByRole('link', { name: country.name })).toHaveAttribute('aria-current', 'page');
+    expect(within(choices).getByRole('link', { name: 'Estonia' })).toHaveAttribute('href', '/funroads/?country=ee&qa=picker');
+    expect(within(choices).getByRole('link', { name: 'Netherlands' })).toHaveAttribute('href', '/funroads/?country=nl&qa=picker');
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('navigation', { name: 'Choose country' })).not.toBeInTheDocument());
+    await waitFor(() => expect(picker).toHaveFocus());
+    expect(screen.getByRole('button', { name: 'Browse routes' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Browse routes' }));
+    expect(picker).toBeVisible();
+    expect(JSON.parse(localStorage.getItem('funroads:favorites:v1')!)).toEqual(saved);
+  });
+
+  it.each(['nl', 'ee'])('describes the actual country sources and circuit distances (%s)', async (id) => {
+    window.history.replaceState(null, '', `/?country=${id}`);
+    const country = getCountry(id);
+    const distances = id === 'ee' ? { Tallinn: 220, Tartu: 65 } : undefined;
+    const input = routes.doc.sprints[0];
+    const countryRoutes = validateRoutesDoc({
+      meta: { country: id, schema_version: 1 }, sprints: [],
+      routes: [{ ...input, id: 'loop', name: 'Loop', area_id: 'test', area_name: 'Test area',
+        line: [...input.line, input.line[0]], score: { ...input.score, total: 60 },
+        flags: [], distance_km: distances }],
+    }, country);
+    expect(countryRoutes.dropped).toEqual([]);
+    const { loadAll } = await import('../data/load');
+    vi.mocked(loadAll).mockResolvedValue({ routes: { value: countryRoutes, error: null }, linked: { value: null, error: null } });
+    const user = userEvent.setup();
+    mount();
+    await screen.findAllByText('1 route');
+    await user.click(screen.getByRole('button', { name: 'Map information' }));
+    await user.click(await screen.findByRole('button', { name: /App and data/ }));
+    expect(await screen.findByText(new RegExp(country.sourceSummary))).toBeVisible();
+    expect(screen.getByText(new RegExp(country.quietDescription))).toBeVisible();
+    expect(screen.getByText(/uses your chosen straight-line radius/)).toBeVisible();
+    if (id === 'ee') {
+      expect(screen.queryByText(/Circuits have no straight-line distance/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/pinned OpenStreetMap, speed-limit, traffic/)).not.toBeInTheDocument();
+      expect(screen.getByText(/Home-to-start driving times are not modeled/)).toBeVisible();
+    } else {
+      expect(screen.getByText(/Circuits have no straight-line distance in this catalogue/)).toBeVisible();
+      expect(screen.getByText(/Circuit reach time is modeled from Zaandam only/)).toBeVisible();
+    }
+  });
+
+  it('shows missing Estonia data without loading Netherlands or altering favorites', async () => {
+    window.history.replaceState(null, '', '/?country=ee');
+    const saved = ['sprint:test', 'ee:sprint:missing'];
+    localStorage.setItem('funroads:favorites:v1', JSON.stringify(saved));
+    const { loadAll } = await import('../data/load');
+    vi.mocked(loadAll).mockResolvedValue({
+      routes: { value: null, error: 'data/ee/routes.json: HTTP 404' },
+      linked: { value: null, error: 'data/ee/linked.json: HTTP 404' },
+    });
+    const user = userEvent.setup();
+    const view = mount();
+    expect(screen.getByRole('heading', { name: 'FunRoads' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Browse routes' }));
+    expect(await screen.findByText(/data\/ee\/routes.json: HTTP 404/)).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Change country: Estonia' }));
+    expect(screen.getByRole('link', { name: 'Netherlands' })).toHaveAttribute('href', '/?country=nl');
+    await user.keyboard('{Escape}');
+    expect(screen.queryByText('Test Road Sprint')).not.toBeInTheDocument();
+    expect(loadAll).toHaveBeenCalledTimes(1);
+    const call = vi.mocked(loadAll).mock.calls[0];
+    expect(call[2]?.id).toBe('ee');
+    await user.click(screen.getByRole('button', { name: 'Simulate map failure' }));
+    expect(screen.getByText(/The map could not start/)).not.toHaveTextContent(/Rijkswaterstaat|NDW|AHN|CBS/);
+    expect(JSON.parse(localStorage.getItem('funroads:favorites:v1')!)).toEqual(saved);
+    view.unmount();
+    expect(call[3]?.aborted).toBe(true);
+  });
+
+  it('uses Estonia homes and deep links, and removes only stale Estonia favorites', async () => {
+    window.history.replaceState(null, '', '/?country=ee#route=ee%3Asprint%3Atest');
+    localStorage.setItem('funroads:favorites:v1', JSON.stringify(['sprint:test', 'ee:sprint:missing']));
+    const { loadAll } = await import('../data/load');
+    const ee = getCountry('ee');
+    const eeRoutes = validateRoutesDoc({
+      ...routes.doc, meta: { country: 'ee', schema_version: 1 },
+      sprints: routes.doc.sprints.map((s) => ({
+        ...s, line: [[26.9, 57.73], [26.91, 57.74]],
+        start: { lon: 26.9, lat: 57.73 }, end: { lon: 26.91, lat: 57.74 },
+        distance_km: { Tallinn: 220, Tartu: 65 },
+      })),
+    }, ee);
+    vi.mocked(loadAll).mockResolvedValue({ routes: { value: eeRoutes, error: null }, linked: { value: null, error: 'No linked data' } });
+    const user = userEvent.setup();
+    mount();
+    await waitFor(() => expect(screen.getByTestId('map-selection')).toHaveTextContent('ee:sprint:test'));
+    await user.click(screen.getByRole('button', { name: 'Back to results' }));
+    await user.click(screen.getByRole('button', { name: 'Change home: Tallinn' }));
+    expect(screen.queryByRole('radio', { name: 'Zaandam' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('radio', { name: 'Tartu' }));
+    await user.click(screen.getByRole('button', { name: 'Remove from saved' }));
+    expect(JSON.parse(localStorage.getItem('funroads:favorites:v1')!)).toEqual(['sprint:test']);
+    await user.click(screen.getByRole('button', { name: /Sprint Road fun average.*Test Road Sprint/ }));
+    await user.click(screen.getByRole('button', { name: 'Details' }));
+    expect(within(await screen.findByRole('dialog')).getByText('Straight-line from Tartu').closest('div')).toHaveTextContent('65 km');
+    expect(location.search).toBe('?country=ee');
+
+    vi.mocked(loadAll).mockResolvedValue({ routes: { value: routes, error: null }, linked: { value: null, error: 'No linked data' } });
+    act(() => {
+      history.replaceState(null, '', '/#route=sprint%3Atest');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    await waitFor(() => expect(screen.getByTestId('map-selection')).toHaveTextContent(/^sprint:test$/));
+    await user.click(screen.getByRole('button', { name: 'Back to results' }));
+    expect(screen.getByRole('button', { name: 'Change home: Zaandam' })).toBeVisible();
+    expect(vi.mocked(loadAll).mock.calls.at(-1)?.[2]?.id).toBe('nl');
+    expect(screen.getByRole('heading', { name: 'FunRoads' })).toBeVisible();
   });
 });

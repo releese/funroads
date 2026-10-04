@@ -37,14 +37,18 @@ self.addEventListener('message', (event) => {
   if (event.data?.type !== 'OFFLINE_STATUS' || !event.ports[0]) return;
   event.waitUntil((async () => {
     let ready = false;
+    const country = event.data.country ?? 'nl';
     try {
       if ((await caches.keys()).includes(CACHE)) {
         const cache = await caches.open(CACHE);
-        const responses = await Promise.all([...URLS].map((url) => cache.match(url)));
-        ready = responses.every((response) => response?.ok);
+        const countryFiles = ['routes.json', 'linked.json'].map((file) => new URL(`data/${country}/${file}`, SCOPE).href);
+        if (countryFiles.every((url) => URLS.has(url))) {
+          const responses = await Promise.all([...URLS].map((url) => cache.match(url)));
+          ready = responses.every((response) => response?.ok);
+        }
       }
     } catch { /* Storage can be disabled or evicted. */ }
-    event.ports[0].postMessage({ type: 'OFFLINE_STATUS', ready, version: VERSION });
+    event.ports[0].postMessage({ type: 'OFFLINE_STATUS', country, ready, version: VERSION });
   })());
 });
 

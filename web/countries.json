@@ -1,0 +1,33 @@
+{
+  "nl": {
+    "name": "Netherlands",
+    "timezone": "Europe/Amsterdam",
+    "bounds": [3.2, 50.7, 7.3, 53.6],
+    "homes": ["Zaandam", "Haarlem"],
+    "reachOrigin": "Zaandam",
+    "searchExample": "Duinlustweg",
+    "sourceSummary": "pinned OpenStreetMap, speed-limit, traffic and elevation snapshots",
+    "quietDescription": "Quiet is a static traffic estimate, not live or time-specific traffic.",
+    "inputDirectory": "data/cache",
+    "required": true,
+    "attribution": "© OpenStreetMap contributors (ODbL), Rijkswaterstaat WKD & NDW, AHN/PDOK, CBS"
+  },
+  "ee": {
+    "name": "Estonia",
+    "timezone": "Europe/Tallinn",
+    "bounds": [20.8, 57.4, 28.3, 60.1],
+    "homes": ["Tallinn", "Tartu"],
+    "reachOrigin": null,
+    "searchExample": "Haanja",
+    "sourceSummary": "OpenStreetMap, terrain and geometry-matched Teeregister surface and speed records",
+    "quietDescription": "Quiet is an OSM-based proxy without traffic counts or population data.",
+    "inputDirectory": "data/ee/cache",
+    "required": false,
+    "attribution": "© OpenStreetMap contributors (ODbL); Maa- ja Ruumiamet terrain model dtm-25 (25 m, EH2000), extracted 3 October 2026; Transpordiamet Teeregister surface and speed records, extracted 3 October 2026",
+    "sourceLinks": [
+      {"label": "OpenStreetMap copyright and ODbL", "url": "https://www.openstreetmap.org/copyright"},
+      {"label": "Maa- ja Ruumiamet open-data licence", "url": "https://geoportaal.maaruum.ee/opendata-licence"},
+      {"label": "Eesti Teeregister dataset (Transpordiamet)", "url": "https://andmed.eesti.ee/datasets/eesti-teeregister"}
+    ]
+  }
+}

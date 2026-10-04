@@ -1,12 +1,12 @@
 import {
   DIMENSIONS,
-  HOMES,
   type LinkedDoc,
   type RawCircuit,
   type RawRide,
   type RawSprint,
   type RoutesDoc,
 } from './raw';
+import { DEFAULT_COUNTRY, type Country } from './countries';
 
 export class DataError extends Error {}
 
@@ -25,7 +25,7 @@ function isLine(v: unknown): boolean {
   return (
     Array.isArray(v) &&
     v.length >= 2 &&
-    v.every((p) => Array.isArray(p) && p.length >= 2 && isNum(p[0]) && isNum(p[1]))
+    v.every((p) => Array.isArray(p) && p.length >= 2 && isNum(p[0]) && Math.abs(p[0]) <= 180 && isNum(p[1]) && Math.abs(p[1]) <= 90)
   );
 }
 
@@ -38,11 +38,24 @@ function hasDims(score: unknown, withTotal: boolean): boolean {
   return DIMENSIONS.every((d) => isNum(score[d])) && (!withTotal || isNum(score.total));
 }
 
-function hasHomes(v: unknown): boolean {
-  return isObj(v) && HOMES.every((h) => isNum(v[h]));
+function distances(v: unknown, country: Country): Record<string, number> | undefined {
+  if (!isObj(v) || !country.homes.every((h) => isNum(v[h]) && v[h] >= 0)) return undefined;
+  return Object.fromEntries(country.homes.map((h) => [h, v[h] as number]));
 }
 
 const isPoint = (v: unknown) => isObj(v) && isNum(v.lat) && isNum(v.lon);
+
+function checkCountry(raw: Record<string, unknown>, country: Country): void {
+  const meta = isObj(raw.meta) ? raw.meta : {};
+  // Existing NL snapshots predate country/version metadata. Other countries
+  // must declare it so a misplaced Dutch file cannot silently become Estonia.
+  if (meta.country != null ? meta.country !== country.id : country.id !== 'nl') {
+    throw new DataError(`Catalogue country does not match ${country.id}`);
+  }
+  if (meta.schema_version != null ? meta.schema_version !== 1 : country.id !== 'nl') {
+    throw new DataError('Unsupported or missing catalogue schema_version (expected 1)');
+  }
+}
 
 function checkCircuit(r: Record<string, unknown>): string | null {
   if (!isStr(r.id) || !isStr(r.name)) return 'id/name';
@@ -97,8 +110,9 @@ function filterRecords<T>(
   return out;
 }
 
-export function validateRoutesDoc(raw: unknown): Validated<RoutesDoc> {
+export function validateRoutesDoc(raw: unknown, country: Country = DEFAULT_COUNTRY): Validated<RoutesDoc> {
   if (!isObj(raw)) throw new DataError('routes.json is not an object');
+  checkCountry(raw, country);
   if (!Array.isArray(raw.routes) || !Array.isArray(raw.sprints)) {
     throw new DataError('routes.json lacks routes[] or sprints[]');
   }
@@ -107,7 +121,8 @@ export function validateRoutesDoc(raw: unknown): Validated<RoutesDoc> {
     meta: isObj(raw.meta) ? (raw.meta as RoutesDoc['meta']) : {},
     home: isObj(raw.home) ? (raw.home as RoutesDoc['home']) : undefined,
     routes: filterRecords<RawCircuit>(raw.routes, 'circuit', checkCircuit, dropped),
-    sprints: filterRecords<RawSprint>(raw.sprints, 'sprint', checkSprint, dropped),
+    sprints: filterRecords<RawSprint>(raw.sprints, 'sprint', checkSprint, dropped)
+      .map((s) => ({ ...s, distance_km: distances(s.distance_km, country) } as RawSprint)),
     areas: Array.isArray(raw.areas)
       ? (raw.areas.filter((a) => isObj(a) && isStr(a.id) && isStr(a.name)) as RoutesDoc['areas'])
       : [],
@@ -115,21 +130,16 @@ export function validateRoutesDoc(raw: unknown): Validated<RoutesDoc> {
       ? (raw.toproads.filter((t) => isObj(t) && isStr(t.name) && isLine(t.line)) as RoutesDoc['toproads'])
       : [],
   };
-  for (const s of doc.sprints) {
-    // Missing distances make the sprint unknown for nearby views, not zero km.
-    if (!hasHomes(s.distance_km)) (s as { distance_km?: unknown }).distance_km = undefined;
-  }
   return { doc, dropped };
 }
 
-export function validateLinkedDoc(raw: unknown): Validated<LinkedDoc> {
+export function validateLinkedDoc(raw: unknown, country: Country = DEFAULT_COUNTRY): Validated<LinkedDoc> {
   if (!isObj(raw)) throw new DataError('linked.json is not an object');
+  checkCountry(raw, country);
   if (!Array.isArray(raw.rides)) throw new DataError('linked.json lacks rides[]');
   const dropped: Validated<unknown>['dropped'] = [];
-  const rides = filterRecords<RawRide>(raw.rides, 'linked', checkRide, dropped);
-  for (const r of rides) {
-    if (!hasHomes(r.distance_km)) (r as { distance_km?: unknown }).distance_km = undefined;
-  }
+  const rides = filterRecords<RawRide>(raw.rides, 'linked', checkRide, dropped)
+    .map((r) => ({ ...r, distance_km: distances(r.distance_km, country) } as RawRide));
   const idList = (v: unknown) => (isStrArr(v) ? v : undefined);
   const profiles: LinkedDoc['profiles'] = {};
   if (isObj(raw.profiles)) {
@@ -140,7 +150,7 @@ export function validateLinkedDoc(raw: unknown): Validated<LinkedDoc> {
   }
   const nearby: LinkedDoc['nearby_100km'] = {};
   if (isObj(raw.nearby_100km)) {
-    for (const home of HOMES) {
+    for (const home of country.homes) {
       const block = raw.nearby_100km[home];
       if (!isObj(block)) continue;
       nearby[home] = {};

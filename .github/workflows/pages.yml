@@ -22,8 +22,8 @@ jobs:
           node-version: '24'
           cache: npm
           cache-dependency-path: web/package-lock.json
-      - name: Require both catalogues
-        run: test -s data/cache/routes.json && test -s data/cache/linked.json
+      - name: Require Netherlands and Estonia catalogue pairs
+        run: test -s data/cache/routes.json && test -s data/cache/linked.json && test -s data/ee/cache/routes.json && test -s data/ee/cache/linked.json
       - run: npm ci
         working-directory: web
       - run: npm test

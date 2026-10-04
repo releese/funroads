@@ -8,7 +8,8 @@ import type { LonLat } from '../data/raw';
 import { stopPin, type Kind, type RouteView } from '../data/model';
 import { DASH, visibleLines, type BBox } from './geo';
 import { useLatest } from '../hooks';
-import { KindLabel, RouteStats } from '../components/ui';
+import { KindLabel, RouteStats, SourceNotice } from '../components/ui';
+import { DEFAULT_COUNTRY, type Country } from '../data/countries';
 
 maplibregl.setWorkerUrl(workerUrl);
 
@@ -27,6 +28,7 @@ export interface FitRequest {
 }
 
 interface Props {
+  country?: Country;
   ranked: RouteView[];
   /** Every catalogue route, used to draw circuits a selected route runs along (they may be filtered out of `ranked`). */
   contextPool: RouteView[];
@@ -45,8 +47,11 @@ interface Props {
 
 // OpenFreeMap: free, keyless vector tiles built from OpenStreetMap.
 export const BASEMAP_URL = 'https://tiles.openfreemap.org/styles/positron';
-export const ROUTE_ATTRIBUTION =
-  'Routes: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors (ODbL), Rijkswaterstaat WKD &amp; NDW, AHN/PDOK, CBS';
+export function routeAttribution(country: Country = DEFAULT_COUNTRY): string {
+  if (country.sourceLinks) return `Routes: ${renderToStaticMarkup(<SourceNotice country={country} />)}`;
+  return `Routes: ${country.attribution.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+    .replace('OpenStreetMap contributors', '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors')}`;
+}
 
 const BLANK_STYLE: StyleSpecification = {
   version: 8,
@@ -57,7 +62,6 @@ const BLANK_STYLE: StyleSpecification = {
 const OUR_SOURCES = new Set(['fr-lines', 'fr-points', 'fr-selected', 'fr-hover', 'fr-context']);
 const OFFSET: maplibregl.ExpressionSpecification = ['interpolate', ['linear'], ['zoom'], 8, ['*', ['get', 'off'], 1.5], 13, ['*', ['get', 'off'], 5]];
 const KINDS: Kind[] = ['circuit', 'linked-loop', 'linked-open', 'sprint'];
-const NL_BOUNDS: BBox = [3.2, 50.7, 7.3, 53.6];
 
 const fc = (features: GeoJSON.Feature[]): GeoJSON.FeatureCollection => ({ type: 'FeatureCollection', features });
 const lineFeature = (r: RouteView): GeoJSON.Feature => ({
@@ -224,7 +228,7 @@ function MapViewImpl(props: Props) {
       map = new maplibregl.Map({
         container: el,
         style: BASEMAP_URL,
-        bounds: NL_BOUNDS as [number, number, number, number],
+        bounds: (props.country ?? DEFAULT_COUNTRY).bounds,
         attributionControl: false,
         dragRotate: false,
         pitchWithRotate: false,
@@ -241,7 +245,7 @@ function MapViewImpl(props: Props) {
     map.on('zoomend', updatePinDensity);
     map.touchZoomRotate.disableRotation();
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
-    map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: ROUTE_ATTRIBUTION }), 'bottom-left');
+    map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: routeAttribution(props.country) }), 'bottom-left');
     const attribution = el.querySelector<HTMLDetailsElement>('.maplibregl-ctrl-attrib')!;
     // Reuse MapLibre's live attribution element in the shared information popover.
     attribution.hidden = true;
@@ -396,9 +400,9 @@ function MapViewImpl(props: Props) {
       map.remove();
       mapRef.current = null;
     };
-    // The map mounts once; later props flow through refs and imperative updates.
+    // Recreate only for a different country; other props use imperative updates.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [props.country?.id]);
   useEffect(() => {
     refreshPoints();
     refreshLines();

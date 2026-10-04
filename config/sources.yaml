@@ -1,0 +1,34 @@
+# Data sources for the funroads pipeline.
+# Every download is pinned in data/manifest.json with url, fetched_at, size and sha256,
+# so any pipeline run can be reproduced against the exact same snapshot.
+
+osm:
+  name: "OpenStreetMap Netherlands extract (Geofabrik)"
+  url: "https://download.geofabrik.de/europe/netherlands-latest.osm.pbf"
+  license: "ODbL 1.0, (c) OpenStreetMap contributors"
+
+wkd_maxspeed:
+  name: "Wegkenmerkendatabase - Maximum snelheden (Rijkswaterstaat/NDW)"
+  # Monthly Geopackage zips in a directory listing; fetch step picks the newest entry.
+  listing: "https://downloads.rijkswaterstaatdata.nl/wkd/geogegevens/Geopackage/Maximum%20snelheden/"
+  license: "CC-BY 4.0, Rijkswaterstaat"
+
+ndw_signs:
+  name: "NDW Verkeersborden actueel beeld (CSV, RD coordinates)"
+  url: "https://opendata.ndw.nu/verkeersborden_actueel_beeld.csv.gz"
+  license: "Open data, NDW"
+
+cbs_vk100:
+  name: "CBS Statistische gegevens per vierkant 100x100m (2020, vol)"
+  url: "https://www.cbs.nl/-/media/cbs/dossiers/nederland-regionaal/vierkanten/100/2023-cbs_vk100_2020_vol.zip"
+  license: "CC-BY 4.0, CBS (bronvermelding vereist)"
+
+roadcurvature:
+  name: "roadcurvature.com Netherlands curvature >= 1000 KMZ"
+  url: "https://kml.roadcurvature.com/europe/netherlands.c_1000.kmz"
+  license: "ODbL 1.0 (derived from OpenStreetMap), (c) roadcurvature.com"
+
+ahn:
+  name: "AHN4 DTM 0.5m sample service (PDOK)"
+  # Resolved by the fetch step; see src/funroads/ahn.py for the WCS/coverage probing.
+  license: "CC-BY 4.0, AHN / Rijkswaterstaat e.a."
