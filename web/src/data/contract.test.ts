@@ -168,6 +168,10 @@ describe.skipIf(!hasData)('pinned national data', () => {
         expect(handover.href.length).toBeLessThanOrEqual(2048);
         expect(handover.href).toMatch(/^https:\/\/www.google.com\/maps\/dir\//);
         handover.points.slice(1).forEach((point, i) => expect(point.km).toBeGreaterThan(handover.points[i].km));
+        const total = handover.points.at(-1)!.km;
+        if (total > 5 * (budget + 1)) {
+          expect(handover.maxGapKm).toBeLessThanOrEqual(2 * total / (budget + 1) + 0.5);
+        }
       }
     }
   });

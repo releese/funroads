@@ -1,5 +1,5 @@
-import { afterEach, expect, it, vi } from 'vitest';
-import { belongsToCountry, countryFromLocation, countryHref, DEFAULT_COUNTRY, getCountry } from './countries';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { belongsToCountry, countryFromLocation, countryHref, DEFAULT_COUNTRY, getCountry, rememberCountry } from './countries';
 import { validateLinkedDoc, validateRoutesDoc } from './validate';
 import { buildCatalogue, buildCollections } from './model';
 import { applyFilters, DEFAULT_FILTERS } from './filters';
@@ -27,16 +27,44 @@ const linked = {
   nearby_100km: { Tartu: { quiet: ['same-id'] }, Zaandam: { quiet: ['same-id'] } },
 };
 
-afterEach(() => { vi.unstubAllGlobals(); history.replaceState(null, '', '/'); });
+beforeEach(() => { localStorage.clear(); history.replaceState(null, '', '/'); });
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); localStorage.clear(); history.replaceState(null, '', '/'); });
 
 it('selects an explicit country without changing default Netherlands links', () => {
   history.replaceState(null, '', '/funroads/?country=ee#route=ee:sprint:same-id');
   expect(countryFromLocation().id).toBe('ee');
   history.replaceState(null, '', '/funroads/');
-  expect(countryFromLocation().id).toBe('nl');
+  expect(countryFromLocation('Europe/Amsterdam').id).toBe('nl');
   expect(() => getCountry('../nl')).toThrow('Unsupported country');
   history.replaceState(null, '', '/?country=unknown');
   expect(() => countryFromLocation()).toThrow('Unsupported country');
+});
+
+it.each([
+  ['Europe/Tallinn', 'ee'], ['Europe/Amsterdam', 'nl'], ['Europe/Helsinki', 'nl'], ['UTC', 'nl'],
+])('uses a first-visit timezone hint without asking for location (%s)', (timezone, expected) => {
+  expect(countryFromLocation(timezone).id).toBe(expected);
+  expect(localStorage.getItem('funroads:country:v1')).toBeNull();
+});
+
+it('remembers a manual country choice ahead of timezone hints but never ahead of explicit URLs', () => {
+  rememberCountry('nl');
+  expect(countryFromLocation('Europe/Tallinn').id).toBe('nl');
+  rememberCountry('ee');
+  expect(countryFromLocation('Europe/Amsterdam').id).toBe('ee');
+  history.replaceState(null, '', '/?country=nl');
+  expect(countryFromLocation('Europe/Tallinn').id).toBe('nl');
+  expect(localStorage.getItem('funroads:country:v1')).toBe('ee');
+});
+
+it('ignores invalid saved choices and keeps navigation working without storage', () => {
+  localStorage.setItem('funroads:country:v1', '__proto__');
+  expect(countryFromLocation('Europe/Tallinn').id).toBe('ee');
+  vi.spyOn(window, 'localStorage', 'get').mockImplementation(() => { throw new Error('Storage blocked'); });
+  expect(() => rememberCountry('nl')).not.toThrow();
+  expect(countryFromLocation('Europe/Tallinn').id).toBe('ee');
+  history.replaceState(null, '', '/?country=nl');
+  expect(countryFromLocation('Europe/Tallinn').id).toBe('nl');
 });
 
 it('switches country with a same-page link, preserving queries but clearing foreign route context', () => {

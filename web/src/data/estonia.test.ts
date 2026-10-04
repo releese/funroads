@@ -34,6 +34,10 @@ it.skipIf(!hasCatalogue)('validates the real Estonia national catalogue without 
       expect(handover.href.length).toBeLessThanOrEqual(2048);
       expect(new URL(handover.href).searchParams.get('waypoints')?.split('|').length ?? 0).toBeLessThanOrEqual(budget);
       handover.points.slice(1).forEach((point, i) => expect(point.km).toBeGreaterThan(handover.points[i].km));
+      const total = handover.points.at(-1)!.km;
+      if (total > 5 * (budget + 1)) {
+        expect(handover.maxGapKm).toBeLessThanOrEqual(2 * total / (budget + 1) + 0.5);
+      }
     }
     expect(r.funScore).toBeGreaterThanOrEqual(0);
     expect(r.funScore).toBeLessThanOrEqual(100);

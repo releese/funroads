@@ -17,6 +17,16 @@ build output remain excluded. This does not resolve the Teeregister rights
 caveat. Older “no push authorized” statements below describe earlier rounds.
 Linked-routing investigation remains deferred; this UI pass changes no data.
 
+Release push completed; GitHub main was verified at `9539d4f`. Pages workflow
+completion is not verified. The next approved country-default/checkpoint
+increment is implemented, validated and authorized for publication to main:
+138 Vitest + 6 Node passed, typecheck/build/integrity passed. Country choices
+are remembered, a first-visit Tallinn timezone hints EE, and new shared route
+links include their country. Legacy-link fallback was dropped at the user's
+request. Maps checkpoints balance constrained routes from both ends inward,
+with geometry-based bends, not invented junctions. See
+`reports/navigation-defaults-20261004.md` for measurements and remaining limits.
+
 State as of 2026-10-04. Three rounds are complete:
 (1) Teeregister evidence integration + circuit-shape gate on the southern
 pilot; (2) **full-country coverage**, user-approved, replacing the pilot;

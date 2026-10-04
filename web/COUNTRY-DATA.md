@@ -3,10 +3,19 @@
 Use the small country control beneath FunRoads, independently of Browse,
 or select the dataset through the page URL:
 
-- Default or `?country=nl`: Netherlands.
+- `?country=nl`: Netherlands.
 - `?country=ee`: Estonia, national coverage from the Geofabrik extract
   (islands included; ferries are not routed). It never falls back to Dutch
   routes.
+
+Explicit country URLs always win. Newly selected route links include the
+country query parameter, so sharing does not depend on local defaults.
+Without an explicit country, a manual choice is remembered in localStorage.
+On a first visit, the browser's `Europe/Tallinn` timezone suggests Estonia;
+`Europe/Amsterdam` and other timezones retain the Netherlands default.
+This is a convenience hint, not a claim about the visitor's location. It uses
+no IP service, network lookup or geolocation permission. Blocked storage does
+not prevent switching countries.
 
 Country choices are ordinary same-page links. They preserve the deployment
 subpath and other query parameters, clear route/detail hashes, and load the
@@ -79,7 +88,7 @@ npm run build
 npm run preview -- --host 127.0.0.1 --port 5174
 ```
 
-Open `http://127.0.0.1:5174/?country=ee`; the root URL/default remains Netherlands.
+Open `http://127.0.0.1:5174/?country=ee`; use `?country=nl` to force Netherlands.
 The production build writes both pairs to `site/data/{nl,ee}/`.
 For development use `npm run dev -- --host 127.0.0.1 --port 5174`.
 

@@ -7,6 +7,8 @@ The latest approved scope also includes publishing all project sources,
 tests, documentation, acceptance evidence and both country catalogue pairs
 to main, including its automatic GitHub Pages deployment. Downloaded raw data,
 generated graphs, environments, dependencies and build output stay local.
+The complete release was pushed as five scanned commits; GitHub main was
+verified at `9539d4f`. Pages workflow completion has not been verified.
 The Teeregister redistribution caveat remains documented, not legally resolved.
 Two EE and five NL circuits changed; IDs, names, starts, favorites keys and
 counts stayed unchanged. NL has 3,853 routes; EE has 790. Sprints and linked
@@ -16,7 +18,7 @@ with 9 desktop/3 compact intermediate-point budgets and a visible caveat.
 Authoritative cleanup evidence, source/package hashes, backups and commands:
 `reports/circuit-cleanup-20261004/README.md`. Estonia current status:
 `EE-TEEREGISTER-HANDOVER.md`. Earlier sections retain historical results.
-Latest checks: 119 Python passed/3 skipped; 126 Vitest + 6 Node passed;
+Latest checks: 119 Python passed/3 skipped; 138 Vitest + 6 Node passed;
 typecheck/build/package integrity passed. Both countries' circuit, sprint,
 linked-open and linked-loop details passed 24 browser layout/link checks at
 1789×1288, 1024×768 and 390×844. Both country menus fit at 320×740.
@@ -31,10 +33,15 @@ context, and leave favorites intact. About copy now distinguishes EE's static
 OSM quiet proxy from NL's traffic inputs and reflects actual direct-distance
 availability. Partial catalogue failures now offer Retry route data.
 
-After this release push, the user approved the next small UI increment:
+After the release push, the approved next increment was implemented locally:
 remember the chosen country and use a first-visit timezone hint
 (`Europe/Tallinn` → EE, `Europe/Amsterdam` → NL, otherwise the NL default).
-Explicit country URLs must win. No geolocation prompt or IP lookup service.
+Explicit country URLs win. No geolocation prompt or IP lookup service.
+The user dropped legacy-link requirements; new route selections write an
+explicit country query parameter. Constrained Maps requests now reserve
+end-to-end distance regions and refine bend candidates from both ends inward.
+The user authorized publishing this increment to main for phone testing. Measurements,
+validation and shape trade-offs: `reports/navigation-defaults-20261004.md`.
 
 **Linked follow-up is deferred by the user.** Only code inspection began;
 no new linked measurement, implementation or catalogue update occurred.

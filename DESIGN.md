@@ -181,6 +181,9 @@ selecting a result fits the map and collapses Browse rather than opening details
 immediately. Every desktop result selection also stays in compact preview until
 Details is explicitly requested. Desktop previews and overlap choosers share a
 fixed bottom-right position with responsive breathing room above the bottom edge.
+Selected previews and overlap choosers show the score gauge and value first in their metadata row,
+before length, route time and direct home distance. Retain the sprint road-average
+score label rather than implying a whole-route total.
 There is no Fit route action; selection already fits the route.
 "Back to results" restores the same list position and filters;
 "Details" is deliberate, and closing it returns to the map preview.

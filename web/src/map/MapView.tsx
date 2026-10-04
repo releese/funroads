@@ -102,7 +102,7 @@ export function chooserContent(routes: RouteView[], more: number, onPick: (key: 
     name.textContent = r.name;
     const kind = document.createElement('span');
     kind.className = 'fr-chooser__kind';
-    kind.innerHTML = renderToStaticMarkup(<><KindLabel kind={r.kind} color={r.color} /><RouteStats route={r} /></>);
+    kind.innerHTML = renderToStaticMarkup(<><KindLabel kind={r.kind} color={r.color} /><RouteStats route={r} showScore /></>);
     b.append(name, kind);
     b.addEventListener('click', () => onPick(r.key));
     el.append(b);

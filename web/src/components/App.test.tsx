@@ -39,7 +39,7 @@ const routes = validateRoutesDoc({
 
 beforeEach(async () => {
   localStorage.clear();
-  window.history.replaceState(null, '', '/');
+  window.history.replaceState(null, '', '/?country=nl');
   viewport(true);
   const { loadAll } = await import('../data/load');
   vi.mocked(loadAll).mockClear();
@@ -76,6 +76,15 @@ describe('responsive interactions', () => {
     sheet.scrollTop = 140;
     fireEvent.scroll(sheet);
     await user.click(await screen.findByRole('button', { name: /Sprint Road fun average.*A long route name/ }));
+    const preview = mobile
+      ? screen.getByRole('button', { name: 'Details' }).parentElement!.parentElement!
+      : screen.getByRole('region', { name: 'Selected route' });
+    const stats = preview.querySelectorAll('.fr-route-stat');
+    expect(stats).toHaveLength(4);
+    expect(stats[0]).toHaveAttribute('aria-label', 'Road fun average 60 out of 100');
+    expect(stats[0]).toHaveTextContent('60/100');
+    expect(stats[0].querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    expect(stats[1]).toHaveAttribute('aria-label', 'Length 5.0 km');
     await user.click(screen.getByRole('button', { name: 'Details' }));
     const body = document.querySelector<HTMLElement>('.fr-detail-content')!;
     body.scrollTop = 220;
@@ -429,6 +438,10 @@ describe('country catalogue integration', () => {
     await user.click(within(screen.getByRole('group', { name: 'Active filters' })).getByRole('button', { name: 'Reset filters' }));
     expect(screen.getByRole('button', { name: `Change home: ${country.homes[1]}` })).toBeVisible();
     await user.click(screen.getByRole('button', { name: new RegExp(`Sprint Road fun average.*${road}`) }));
+    const preview = mobile
+      ? screen.getByRole('button', { name: 'Details' }).parentElement!.parentElement!
+      : screen.getByRole('region', { name: 'Selected route' });
+    expect(preview.querySelector('.fr-route-stat')).toHaveAttribute('aria-label', 'Road fun average 60 out of 100');
     await user.click(screen.getByRole('button', { name: 'Details' }));
     expect(await screen.findByText(`Straight-line from ${country.homes[1]}`)).toBeVisible();
     expect(screen.getByText(`Straight-line from ${country.homes[1]}`).closest('div')).toHaveTextContent('20 km');
@@ -491,6 +504,10 @@ describe('country catalogue integration', () => {
     expect(within(choices).getByRole('link', { name: country.name })).toHaveAttribute('aria-current', 'page');
     expect(within(choices).getByRole('link', { name: 'Estonia' })).toHaveAttribute('href', '/funroads/?country=ee&qa=picker');
     expect(within(choices).getByRole('link', { name: 'Netherlands' })).toHaveAttribute('href', '/funroads/?country=nl&qa=picker');
+    const other = within(choices).getByRole('link', { name: id === 'ee' ? 'Netherlands' : 'Estonia' });
+    other.addEventListener('click', (event) => event.preventDefault());
+    await user.click(other);
+    expect(localStorage.getItem('funroads:country:v1')).toBe(id === 'ee' ? 'nl' : 'ee');
     await user.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('navigation', { name: 'Choose country' })).not.toBeInTheDocument());
     await waitFor(() => expect(picker).toHaveFocus());

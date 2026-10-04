@@ -24,6 +24,16 @@ export function getCountry(id: string): Country {
 
 export const DEFAULT_COUNTRY = getCountry('nl');
 export const COUNTRIES = Object.keys(definitions).map(getCountry);
+const PREFERENCE_KEY = 'funroads:country:v1';
+
+export function rememberCountry(id: CountryId): void {
+  const country = getCountry(id);
+  try {
+    window.localStorage.setItem(PREFERENCE_KEY, country.id);
+  } catch {
+    // Country links still work when browser storage is unavailable.
+  }
+}
 
 /** Keep country links usable offline and under a deployment subpath. */
 export function countryHref(id: CountryId, current = window.location.href): string {
@@ -33,8 +43,16 @@ export function countryHref(id: CountryId, current = window.location.href): stri
   return url.pathname + url.search;
 }
 
-export function countryFromLocation(): Country {
-  return getCountry(new URLSearchParams(window.location.search).get('country') ?? 'nl');
+export function countryFromLocation(timezone?: string): Country {
+  const explicit = new URLSearchParams(window.location.search).get('country');
+  if (explicit != null) return getCountry(explicit);
+  try {
+    const saved = window.localStorage.getItem(PREFERENCE_KEY);
+    if (saved && Object.prototype.hasOwnProperty.call(definitions, saved)) return getCountry(saved);
+  } catch {
+    // Private browsing may deny storage; the timezone hint needs no permission.
+  }
+  return getCountry((timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone) === 'Europe/Tallinn' ? 'ee' : 'nl');
 }
 
 /** Preserve existing Netherlands links and saved keys; new countries are namespaced. */

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { LonLat } from './raw';
 import { cumulativeKm } from '../map/geo';
-import { mapsHandover, MAX_POINT_GAP_KM, MAPS_URL_LIMIT, chordDeviationKm } from './gmaps';
+import { mapsHandover, MAX_POINT_GAP_KM, MAPS_URL_LIMIT, BEND_APPROACH_KM, chordDeviationKm } from './gmaps';
 
 const straight: LonLat[] = [[4.8, 52.4], [5.8, 52.4]];
 const detour: LonLat[] = [[4.8, 52.4], [4.8, 52.5], [4.81, 52.5], [4.81, 52.4]];
@@ -82,5 +82,38 @@ describe('shape-aware Maps handover', () => {
     const handover = mapsHandover(line, false, 9)!;
     expect(handover.points.map((p) => p.point)).toEqual(line);
     expect(handover.limited).toBe(false);
+  });
+
+  it.each([3, 9])('covers both ends of a long circuit despite concentrated bends (budget=%s)', (budget) => {
+    const line: LonLat[] = [
+      [4.8, 52.4],
+      ...Array.from({ length: 30 }, (_, i): LonLat => [4.8 + (i + 1) * 0.01, 52.4 + (i % 2 ? 0 : 0.035)]),
+      [5.5, 52.4], [5.5, 52.1], [4.8, 52.1], [4.8, 52.4],
+    ];
+    const handover = mapsHandover(line, true, budget)!;
+    const total = cumulativeKm(line).at(-1)!;
+    const step = total / (budget + 1);
+    expect(handover.points).toHaveLength(budget + 2);
+    handover.points.slice(1, -1).forEach((p, i) => {
+      expect(p.km).toBeGreaterThanOrEqual((i + 0.5) * step - BEND_APPROACH_KM);
+      expect(p.km).toBeLessThanOrEqual((i + 1.5) * step);
+    });
+    expect(handover.maxGapKm).toBeLessThanOrEqual(2 * step + BEND_APPROACH_KM);
+    expect(handover.limited).toBe(true);
+  });
+
+  it('prefers a substantial bend over the distance midpoint of its region', () => {
+    const line: LonLat[] = [[4.8, 52.4], [5.1, 52.4], [5.1, 53]];
+    const corner = cumulativeKm(line)[1];
+    const handover = mapsHandover(line, false, 9)!;
+    expect(handover.points.some((p) => Math.abs(p.km - (corner - BEND_APPROACH_KM)) < 1e-8)).toBe(true);
+  });
+
+  it('does not repeat consecutive stops on a long out-and-back with an even budget', () => {
+    const line: LonLat[] = [[4.8, 52.4], [5.8, 52.4], [4.8, 52.4]];
+    const handover = mapsHandover(line, true, 2)!;
+    expect(handover.points.length).toBeLessThanOrEqual(4);
+    handover.points.slice(1).forEach((p, i) => expect(p.point).not.toEqual(handover.points[i].point));
+    expect(handover.points.at(-1)!.point).toEqual(line[0]);
   });
 });

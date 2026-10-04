@@ -7,14 +7,18 @@ import { RouteStats } from '../components/ui';
 
 it('keeps chooser symbols decorative, labels intact and selection working', () => {
   const pick = vi.fn();
-  const route = { key: 'sprint:test', name: 'Road <one>', kind: 'sprint', color: '#666', km: 1.1, driveMin: 1 } as RouteView;
-  const chooser = chooserContent([route, { ...route, key: 'linked:test', name: 'Road two', kind: 'linked-loop' }], 0, pick, vi.fn());
+  const route = { key: 'sprint:test', name: 'Road <one>', kind: 'sprint', color: '#666', km: 1.1, driveMin: 1, funScore: 60, funScoreBasis: 'road-average' } as RouteView;
+  const chooser = chooserContent([route, { ...route, key: 'linked:test', name: 'Road two', kind: 'linked-loop', funScoreBasis: 'route-total' }], 0, pick, vi.fn());
   const buttons = within(chooser).getAllByRole('button');
   expect(buttons[0]).toHaveTextContent('Road <one>');
   expect(buttons[0]).toHaveTextContent('Sprint');
   expect(buttons[0]).toHaveTextContent('1.1 km');
   expect(buttons[0]).toHaveTextContent('~1 min');
-  expect(buttons[0].querySelectorAll('svg[aria-hidden="true"]')).toHaveLength(3);
+  expect(buttons[0].querySelector('.fr-route-stat')).toHaveAttribute('aria-label', 'Road fun average 60 out of 100');
+  expect(buttons[0].querySelector('.fr-route-stat')).toHaveTextContent('60/100');
+  expect(buttons[1].querySelector('.fr-route-stat')).toHaveAttribute('aria-label', 'Fun score 60 out of 100');
+  expect(buttons[0].querySelectorAll('.fr-route-stat')[1]).toHaveAttribute('aria-label', 'Length 1.1 km');
+  expect(buttons[0].querySelectorAll('svg[aria-hidden="true"]')).toHaveLength(4);
   expect(buttons[0].querySelector('svg')?.querySelector('circle')).toBeNull();
   expect(buttons[1].querySelector('svg')?.querySelector('circle')).not.toBeNull();
   buttons[1].click();

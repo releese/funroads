@@ -49,10 +49,10 @@ export function mapsHandover(input: LonLat[], loop: boolean, budget: number): Ma
   const total = distances[last];
   const atKm = (km: number): ShapingPoint => ({ point: pointAtFraction(line, km / total), km });
   const points: ShapingPoint[] = [{ point: line[0], km: 0 }, { point: line[last], km: total }];
-  const interval = (a: ShapingPoint, b: ShapingPoint) => {
+  const interval = (a: ShapingPoint, b: ShapingPoint, min = a.km, max = b.km) => {
     let deviation = 0, index = -1;
     for (let i = 1; i < last; i++) {
-      if (distances[i] <= a.km || distances[i] >= b.km) continue;
+      if (distances[i] <= min || distances[i] >= max) continue;
       const d = chordDeviationKm(line[i], a.point, b.point);
       if (d > deviation) { deviation = d; index = i; }
     }
@@ -80,6 +80,27 @@ export function mapsHandover(input: LonLat[], loop: boolean, budget: number): Ma
     const { deviation, gap } = interval(points[i], p);
     return deviation > SHAPE_DEVIATION_KM + 1e-9 || gap > MAX_POINT_GAP_KM + 1e-9;
   });
+  if (constrained) {
+    // Reserve end-to-end coverage, then refine bends from both ends inward.
+    const shape = points.slice(1, -1);
+    points.splice(1, points.length - 2);
+    const step = total / (budget + 1);
+    for (let i = 1; i <= budget; i++) points.splice(points.length - 1, 0, atKm(i * step));
+    for (let j = 0; j < budget; j++) {
+      const i = j % 2 ? budget - Math.floor(j / 2) : 1 + Math.floor(j / 2);
+      const previous = points[i - 1], next = points[i + 1];
+      const low = (i - 0.5) * step, high = (i + 0.5) * step;
+      const { index } = interval(previous, next, low, high);
+      const candidates = [points[i], ...shape.filter((p) => p.km >= low && p.km <= high)];
+      if (index >= 0) candidates.push({ point: line[index], km: distances[index] });
+      let best = Infinity;
+      for (const candidate of candidates) {
+        if (same(candidate.point, previous.point) || same(candidate.point, next.point)) continue;
+        const deviation = Math.max(interval(previous, candidate).deviation, interval(candidate, next).deviation);
+        if (deviation < best) { best = deviation; points[i] = candidate; }
+      }
+    }
+  }
   // ponytail: geometry-only approach placement, not junction detection. Revisit
   // with road/junction evidence if device trials expose more snapping detours.
   const placed = points.map((p, i) => {

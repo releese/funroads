@@ -478,7 +478,7 @@ export function App({ dataBase, country = countryFromLocation() }: { dataBase: s
               <section aria-label="Selected route" data-map-overlay="bottom" className={`fr-route-preview ${css({ backgroundColor: tokens.canvas, borderRadius: tokens.radiusCard, padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.16)' })}`}>
                 <KindLabel kind={selected.kind} color={selected.color} />
                 <strong style={{ display: 'block', margin: '6px 0', fontSize: 18 }}>{selected.name}</strong>
-                <RouteStats route={selected} home={filters.home} />
+                <RouteStats route={selected} home={filters.home} showScore />
                 {excludedReasons.length ? <Caption>Selected route no longer matches these results.</Caption> : null}
                 <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                   <Button shape={SHAPE.default} size={SIZE.compact} onClick={(e) => openRoute(selected, e.currentTarget)} overrides={{ BaseButton: { style: { minHeight: '44px' } } }}>Details</Button>
@@ -543,7 +543,7 @@ export function App({ dataBase, country = countryFromLocation() }: { dataBase: s
                     <div style={{ minWidth: 0 }}>
                       <KindLabel kind={selected.kind} color={selected.color} />
                       <strong style={{ display: 'block', fontSize: 16, lineHeight: '24px', overflowWrap: 'anywhere' }}>{selected.name}</strong>
-                      <RouteStats route={selected} home={filters.home} />
+                      <RouteStats route={selected} home={filters.home} showScore />
                       {excludedReasons.length ? <Caption>No longer matches these results.</Caption> : null}
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>

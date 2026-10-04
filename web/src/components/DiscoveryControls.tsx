@@ -6,7 +6,7 @@ import { activePills, clearPill, PROFILE_LABEL, resetFilters, ROUTE_TYPES, selec
 import { HomeChoices, ProfileChoices, RoadSearch, SORTS, selectInputOverrides, type ControlProps } from './Controls';
 import { Caption, KindGlyph, ProfileIcon, StatIcon } from './ui';
 import { tokens } from '../theme';
-import { COUNTRIES, countryHref, type Country } from '../data/countries';
+import { COUNTRIES, countryHref, rememberCountry, type Country } from '../data/countries';
 
 export function CountryPicker({ country }: { country: Country }) {
   return (
@@ -17,6 +17,7 @@ export function CountryPicker({ country }: { country: Country }) {
           <nav aria-label="Choose country" style={{ display: 'grid', gap: 4, padding: 8, width: 'min(240px, calc(100vw - 32px))' }}>
             {COUNTRIES.map((option) => (
               <Button key={option.id} $as="a" href={countryHref(option.id)}
+                onClick={() => rememberCountry(option.id)}
                 aria-current={option.id === country.id ? 'page' : undefined}
                 kind={option.id === country.id ? KIND.primary : KIND.secondary} shape={SHAPE.default} size={SIZE.compact}
                 overrides={{ BaseButton: { style: { minHeight: '44px', justifyContent: 'flex-start' } } }}>

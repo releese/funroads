@@ -7,8 +7,10 @@ export function readRouteLocation() {
 export function writeRouteLocation(key: string | null, detail: boolean, openDetail = false) {
   const url = new URL(window.location.href);
   const params = new URLSearchParams(url.hash.slice(1));
-  if (key) params.set('route', key);
-  else params.delete('route');
+  if (key) {
+    params.set('route', key);
+    url.searchParams.set('country', key.startsWith('ee:') ? 'ee' : 'nl');
+  } else params.delete('route');
   if (key && detail) params.set('detail', '1');
   else params.delete('detail');
   url.hash = params.toString();

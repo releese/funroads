@@ -118,10 +118,14 @@ export function ProfileIcon({ profile }: { profile: Profile }) {
   );
 }
 
-export function RouteStats({ route, home }: { route: RouteView; home?: Home }) {
+export function RouteStats({ route, home, showScore = false }: { route: RouteView; home?: Home; showScore?: boolean }) {
   const distance = home ? route.distanceKm?.[home] : null;
+  const scoreLabel = route.funScoreBasis === 'route-total' ? 'Fun score' : 'Road fun average';
   return (
     <span style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 12px', fontSize: 12, lineHeight: '18px', color: tokens.hairlineMid }}>
+      {showScore ? <span className="fr-route-stat" aria-label={`${scoreLabel} ${Math.round(route.funScore)} out of 100`} title={scoreLabel}>
+        <StatIcon name="score" />{Math.round(route.funScore)}/100
+      </span> : null}
       <span className="fr-route-stat" aria-label={`Length ${km(route.km)}`} title="Route length">
         <StatIcon name="route" />{km(route.km)}
       </span>
