@@ -423,6 +423,7 @@ export function App({ dataBase, country = countryFromLocation() }: { dataBase: s
       onPreview={browseRoute}
       onToggleFavorite={onToggleFavorite}
       onCursorKm={setCursorKm}
+      onFeedback={setSaveFeedback}
     />
   ) : null;
 

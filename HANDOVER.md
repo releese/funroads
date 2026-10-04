@@ -2,6 +2,39 @@
 
 ## Start here: current state and next work
 
+### Full-route GPX sharing and export
+
+- Details now have a matching bare 20 px export icon immediately left of
+  favorite, with the same transparent 44 px touch target on both layouts.
+- The action shares a GPX file through the native share sheet when the browser
+  accepts file sharing. Otherwise it downloads the file, including when sharing
+  is denied or unavailable. Cancelling the share sheet never downloads.
+  Accessible labels/tooltips distinguish Share GPX from Download GPX.
+- GPX 1.1 uses one track/segment containing every ordered catalogue coordinate,
+  preserving precision and existing loop closure, without waypoint sampling,
+  inferred return legs, or routing instructions. XML serialization handles
+  names safely; bounded filenames retain Unicode and replace unsafe characters.
+  The route name appears in both file-level `metadata/name` and `trk/name` for
+  importer compatibility. The user confirmed Sideways on Android still displays
+  "Untitled route" despite both fields being present. A separate route-format
+  diagnostic file failed to load there; the user chose to keep track export
+  unchanged and leave Sideways naming unresolved.
+- Export keeps selection, details, Browse state and favorites intact. A pending
+  share disables duplicate taps. Download guidance and errors reuse the existing
+  three-second status banner. Google Maps remains the Navigate action.
+- No dependencies, server or undocumented app deep links were added. Physical
+  Android/iOS file sharing and Sideways track import/geometry retention remain
+  unverified; a direct one-tap Sideways launch is not claimed.
+
+Validation: 184 Vitest tests, 13 Node catalogue/worker checks, typecheck and
+production packaging/integrity checks passed. Local Chromium confirmed desktop
+and 390 px mobile header placement and 44 px targets. The actual mobile action
+produced valid GPX containing all 900 coordinates of Provincialeweg Circuit,
+identical to its catalogue geometry, while preserving detail context. File
+creation was captured with the browser's anchor click intercepted; the embedded
+browser's native download-save command timed out, so saving to disk and native
+phone handoff are not claimed as browser-validated.
+
 ### Nine-point mobile Maps links and refresh/open PWA updates
 
 Current release changes:

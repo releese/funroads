@@ -13,8 +13,14 @@ import { ResultCard } from './Results';
 import { BEFORE_UPDATE_EVENT } from '../pwa';
 import { readBrowsingState, saveBrowsingState } from '../data/browsing-state';
 import { DEFAULT_FILTERS } from '../data/filters';
+import { canShareGpx, exportGpx } from '../data/gpx';
 
 vi.mock('../data/load', () => ({ loadAll: vi.fn() }));
+vi.mock('../data/gpx', async (importOriginal) => ({
+  ...await importOriginal<typeof import('../data/gpx')>(),
+  canShareGpx: vi.fn(() => false),
+  exportGpx: vi.fn(),
+}));
 vi.mock('../map/MapView', () => ({
   MapView: ({ selected, onBlank, onSelect, onInteract, onStatus }: { selected: { key: string } | null; onBlank: () => void; onSelect: (key: string) => void; onInteract: () => void; onStatus: (status: 'unavailable') => void }) => (
     <div aria-label="Test map">
@@ -51,6 +57,8 @@ beforeEach(async () => {
   vi.mocked(loadAll).mockClear();
   vi.mocked(loadAll).mockResolvedValue({ routes: { value: routes, error: null }, linked: { value: null, error: 'No linked data' } });
   HTMLElement.prototype.scrollIntoView = vi.fn();
+  vi.mocked(canShareGpx).mockReturnValue(false);
+  vi.mocked(exportGpx).mockReset().mockResolvedValue('downloaded');
 });
 afterEach(cleanup);
 
@@ -66,6 +74,59 @@ function mount() {
 }
 
 describe('responsive interactions', () => {
+  it.each([true, false])('exports the full route immediately left of favorites without losing context (mobile=%s)', async (mobile) => {
+    viewport(mobile);
+    window.history.replaceState(null, '', '/?country=nl#route=sprint%3Atest&detail=1');
+    const user = userEvent.setup();
+    mount();
+    const button = await screen.findByRole('button', { name: 'Download GPX' });
+    const favorite = screen.getByRole('button', { name: 'Add to favorites' });
+    expect(button.nextElementSibling).toBe(favorite);
+    expect(button.closest('header')).toHaveClass('fr-detail-actions');
+    expect(button).toHaveClass('fr-icon-button');
+    expect(button.querySelector('svg')).toHaveAttribute('width', '20');
+    expect(button).toHaveAttribute('title', 'Download the full route as GPX');
+    await user.click(button);
+    expect(exportGpx).toHaveBeenCalledOnce();
+    const file = vi.mocked(exportGpx).mock.calls[0][0];
+    expect(file).toBeInstanceOf(File);
+    expect(file.name).toBe('funroads-Test Road Sprint.gpx');
+    expect(await screen.findByRole('status')).toHaveTextContent('GPX download started');
+    expect(screen.getByTestId('map-selection')).toHaveTextContent('sprint:test');
+    expect(location.hash).toContain('detail=1');
+    expect(screen.getByRole('link', { name: 'Open in Google Maps' })).toBeVisible();
+    expect(favorite).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('keeps native sharing busy, ignores duplicate taps and gives no download feedback on cancellation', async () => {
+    vi.mocked(canShareGpx).mockReturnValue(true);
+    let finish!: (result: 'cancelled') => void;
+    vi.mocked(exportGpx).mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+    window.history.replaceState(null, '', '/?country=nl#route=sprint%3Atest&detail=1');
+    const user = userEvent.setup();
+    mount();
+    const button = await screen.findByRole('button', { name: 'Share GPX' });
+    await user.click(button);
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute('aria-busy', 'true');
+    await user.click(button);
+    expect(exportGpx).toHaveBeenCalledOnce();
+    await act(async () => { finish('cancelled'); });
+    expect(button).toBeEnabled();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('reports export failure and allows another attempt', async () => {
+    vi.mocked(exportGpx).mockRejectedValue(new Error('Download blocked'));
+    window.history.replaceState(null, '', '/?country=nl#route=sprint%3Atest&detail=1');
+    const user = userEvent.setup();
+    mount();
+    const button = await screen.findByRole('button', { name: 'Download GPX' });
+    await user.click(button);
+    expect(await screen.findByRole('status')).toHaveTextContent('Could not export GPX');
+    expect(button).toBeEnabled();
+  });
+
   it.each([true, false])('restores browsing choices and scroll positions after a verified update (mobile=%s)', async (mobile) => {
     viewport(mobile);
     window.history.replaceState(null, '', '/?country=nl#route=sprint%3Atest&detail=1');

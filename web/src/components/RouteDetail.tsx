@@ -1,10 +1,11 @@
-import { forwardRef, useMemo } from 'react';
+import { forwardRef, useMemo, useState } from 'react';
 import { Button, KIND as BKIND, SHAPE, SIZE } from 'baseui/button';
 import type { Home, LinkedProfile } from '../data/raw';
 import { DIMENSIONS } from '../data/raw';
 import type { RouteView } from '../data/model';
 import { KIND_SHAPE, routeForRoad, similarRoutes, stopPin } from '../data/model';
 import { formatDate, km, pct } from '../data/format';
+import { canShareGpx, exportGpx, gpxFile } from '../data/gpx';
 import { Disclosure, KindLabel, Meter, Notice, RouteCard, RouteStats, SectionTitle, StatIcon, SourceNotice } from './ui';
 import { ProfileChart, limitMix } from './ProfileChart';
 import { tokens } from '../theme';
@@ -27,6 +28,7 @@ interface Props {
   onPreview: (r: RouteView, el: HTMLElement) => void;
   onToggleFavorite: (key: string) => void;
   onCursorKm: (km: number | null) => void;
+  onFeedback: (message: string) => void;
 }
 
 const DIM_LABEL: Record<(typeof DIMENSIONS)[number], string> = {
@@ -70,7 +72,7 @@ const headerIconStyle = {
 };
 
 export const RouteDetail = forwardRef<HTMLHeadingElement, Props>(function RouteDetail(
-  { route: r, home, allRoutes, generated, excludedReasons, favorite, onClose, onOpen, onPreview, onToggleFavorite, onCursorKm, country = DEFAULT_COUNTRY },
+  { route: r, home, allRoutes, generated, excludedReasons, favorite, onClose, onOpen, onPreview, onToggleFavorite, onCursorKm, onFeedback, country = DEFAULT_COUNTRY },
   headingRef,
 ) {
   const dist = r.distanceKm?.[home];
@@ -83,6 +85,21 @@ export const RouteDetail = forwardRef<HTMLHeadingElement, Props>(function RouteD
   const mix = limitMix(detail);
   const similar = similarRoutes(r, allRoutes);
   const roadTargets = useMemo(() => r.roads.map((road) => routeForRoad(r, road.name, allRoutes)), [r, allRoutes]);
+  const file = useMemo(() => gpxFile(r), [r]);
+  const shareable = canShareGpx(file);
+  const [exporting, setExporting] = useState(false);
+  const onExport = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const result = await exportGpx(file);
+      if (result === 'downloaded') onFeedback('GPX download started. Open it in Sideways or another GPX app.');
+    } catch {
+      onFeedback('Could not export GPX. Please try again.');
+    } finally {
+      setExporting(false);
+    }
+  };
   const badges = [
     ...r.profileLists.map((p) => `Top 12 ${PROFILE_NAME[p]} linked ride ${country.coverage ? 'within the pilot' : 'nationally'}`),
     ...(r.nearbyLists[home] ?? []).map((p) => `Top 12 ${PROFILE_NAME[p]} within 100 km of ${home}`),
@@ -92,6 +109,16 @@ export const RouteDetail = forwardRef<HTMLHeadingElement, Props>(function RouteD
     <article aria-labelledby="detail-heading" className="fr-detail">
       <header className="fr-detail-actions">
         <KindLabel kind={r.kind} color={r.color} />
+        <Button kind={BKIND.tertiary} shape={SHAPE.circle} size={SIZE.compact} onClick={onExport}
+          disabled={exporting} aria-busy={exporting}
+          aria-label={shareable ? 'Share GPX' : 'Download GPX'}
+          title={shareable ? 'Share the full route as GPX' : 'Download the full route as GPX'}
+          overrides={{ BaseButton: { props: { className: 'fr-icon-button' }, style: headerIconStyle } }}>
+          <span aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d={shareable ? 'M12 16V3m-5 5 5-5 5 5' : 'M12 3v13m-5-5 5 5 5-5'} />
+            <path d="M4 14v6a1 1 0 001 1h14a1 1 0 001-1v-6" />
+          </svg></span>
+        </Button>
         <Button
           kind={BKIND.tertiary}
           shape={SHAPE.circle}

@@ -199,8 +199,8 @@ Ranking choices apply live without closing the popup; Close, Escape and outside
 clicks dismiss it.
 Mobile details are an inset modal card with 12 px outside spacing, safe-area
 allowances and 16 px corners. Visible map edges provide context; the background
-remains inert. Details use a fixed header: kind/swatch on the left, favorite and
-close X on the right, with 44 px targets. Navigate occupies a fixed bottom row.
+remains inert. Details use a fixed header: kind/swatch on the left, GPX export,
+favorite and close X on the right, with 44 px targets. Navigate occupies a fixed bottom row.
 Only the middle content scrolls, with thin rounded scrollbars and quiet 1 px
 dividers. Inset the scrolling body by 8 px, with 8 px internal padding, so the
 thumb does not touch the card outline while text keeps its 16 px alignment.
@@ -208,7 +208,7 @@ Use the same subtle scrollbar across the app, including menus and popovers:
 6 px rounded light-gray (`#dedede`) thumbs, transparent tracks and a slightly
 darker (`#c4c4c4`) hover. Honor system colors in forced-color mode.
 Inset the Browse scrollbar by 2 px while preserving its 16 px content alignment.
-Navigate uses soft-gray fill and 8 px corners. Header favorite and close use
+Navigate uses soft-gray fill and 8 px corners. Header export, favorite and close use
 matching 20 px bare icons, without circles or background fills, spaced 4 px
 apart. Give the close glyph a 2 px stroke to balance the saved star.
 Keep invisible 44 px hit areas and clear hover/focus; a filled star shows saved
@@ -217,6 +217,11 @@ Save feedback is a fixed, centered floating top banner with a three-second
 lifetime, never a footer or flex item that resizes the map. Bound its width and
 place it below phone header actions; retain polite status announcements.
 Close details preserves route selection, filters and return context.
+The export icon sits immediately left of favorite. Share the complete ordered
+route geometry as a GPX 1.1 track through native file sharing when supported;
+otherwise download a `.gpx` file. Use capability-appropriate "Share GPX" or
+"Download GPX" labels and icons. Cancelling sharing does not download anything.
+Do not promise a direct Sideways launch or exact third-party import behavior.
 Navigate opens Google Maps,
 identified in its accessible label and tooltip; returning already restores the
 selected map route, so there is no duplicate "Show on map" action.
