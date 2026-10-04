@@ -10,6 +10,9 @@ import { getCountry } from '../data/countries';
 import { buildCatalogue, KIND_SHAPE, routeForRoad, type Kind } from '../data/model';
 import { App } from './App';
 import { ResultCard } from './Results';
+import { BEFORE_UPDATE_EVENT } from '../pwa';
+import { readBrowsingState, saveBrowsingState } from '../data/browsing-state';
+import { DEFAULT_FILTERS } from '../data/filters';
 
 vi.mock('../data/load', () => ({ loadAll: vi.fn() }));
 vi.mock('../map/MapView', () => ({
@@ -41,6 +44,7 @@ const routes = validateRoutesDoc({
 
 beforeEach(async () => {
   localStorage.clear();
+  sessionStorage.clear();
   window.history.replaceState(null, '', '/?country=nl');
   viewport(true);
   const { loadAll } = await import('../data/load');
@@ -62,6 +66,34 @@ function mount() {
 }
 
 describe('responsive interactions', () => {
+  it.each([true, false])('restores browsing choices and scroll positions after a verified update (mobile=%s)', async (mobile) => {
+    viewport(mobile);
+    window.history.replaceState(null, '', '/?country=nl#route=sprint%3Atest&detail=1');
+    localStorage.setItem('funroads:favorites:v1', JSON.stringify(['sprint:test']));
+    const saved = {
+      filters: { ...DEFAULT_FILTERS, home: 'Haarlem', profile: 'scenic' as const, minFun: 10 },
+      favOnly: true, collectionId: null, shown: 120, sheetOpen: true, browseScroll: 140, detailScroll: 220,
+    };
+    saveBrowsingState(getCountry('nl'), saved);
+    const user = userEvent.setup();
+    mount();
+    await screen.findByRole('heading', { name: 'Test Road Sprint' });
+    const detail = document.querySelector<HTMLElement>('.fr-detail-content')!;
+    await waitFor(() => expect(detail.scrollTop).toBe(220));
+    expect(screen.getByTestId('map-selection')).toHaveTextContent('sprint:test');
+    await user.click(screen.getByRole('button', { name: 'Close details' }));
+    expect(screen.getByRole('button', { name: 'Change home: Haarlem' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Rank routes: Scenic' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Remove filter: Favorites only' })).toBeVisible();
+    const sheet = document.getElementById('sheet-body')!;
+    expect(sheet.scrollTop).toBe(140);
+    window.dispatchEvent(new Event(BEFORE_UPDATE_EVENT));
+    expect(readBrowsingState(getCountry('nl'))).toEqual({ ...saved, detailScroll: 0 });
+    expect(JSON.parse(localStorage.getItem('funroads:favorites:v1')!)).toEqual(['sprint:test']);
+    window.dispatchEvent(new PageTransitionEvent('pagehide'));
+    expect(readBrowsingState(getCountry('nl'))?.filters).toEqual(saved.filters);
+  });
+
   it.each([true, false])('offers one whole-route Maps link without losing detail or browse context (mobile=%s)', async (mobile) => {
     viewport(mobile);
     const { loadAll } = await import('../data/load');
@@ -104,7 +136,8 @@ describe('responsive interactions', () => {
     expect(navigate).toHaveAttribute('target', '_blank');
     expect(navigate).toHaveAccessibleDescription(/do not guarantee exact route fidelity/);
     const url = new URL(navigate.getAttribute('href')!);
-    expect(url.searchParams.get('waypoints')?.split('|').length ?? 0).toBeLessThanOrEqual(mobile ? 3 : 9);
+    expect(url.searchParams.get('waypoints')?.split('|')).toHaveLength(9);
+    if (mobile) expect(navigate).toHaveAccessibleDescription(/Mobile browsers may keep only three intermediate points/);
     expect(url.searchParams.get('origin')).toBe('52.4,4.8');
     expect(url.searchParams.get('destination')).toBe('52.4,5.8');
     expect(location.href).toBe(routeLocation);

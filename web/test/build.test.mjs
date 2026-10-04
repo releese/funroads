@@ -11,7 +11,7 @@ test('publishes only current build files and a complete, matching offline versio
   const sw = readFileSync(new URL('sw.js', site), 'utf8');
   const context = { self: { registration: { scope: 'https://example.org/funroads/' }, addEventListener() {} }, URL };
   vm.createContext(context);
-  vm.runInContext(`${sw}\nglobalThis.entries = ENTRIES;`, context);
+  vm.runInContext(`${sw}\nglobalThis.entries = ENTRIES; globalThis.build = BUILD_ID;`, context);
   const files = readdirSync(site, { recursive: true, withFileTypes: true })
     .filter((entry) => entry.isFile())
     .map((entry) => `${entry.parentPath.replaceAll('\\', '/')}/${entry.name}`);
@@ -27,9 +27,15 @@ test('publishes only current build files and a complete, matching offline versio
     assert(!file.includes('demo') && !file.endsWith('.md'));
   }
   for (const { file, source } of publishedCatalogues(fileURLToPath(new URL('../../', import.meta.url)))) {
-    assert.deepEqual(readFileSync(new URL(file, site)), readFileSync(source));
-    assert(context.entries.some((entry) => entry.file === file));
+    const bytes = readFileSync(source);
+    const fingerprinted = file.replace(/\.json$/, `.${createHash('sha256').update(bytes).digest('hex')}.json`);
+    assert.deepEqual(readFileSync(new URL(fingerprinted, site)), bytes);
+    assert(context.entries.some((entry) => entry.file === fingerprinted));
+    assert(!context.entries.some((entry) => entry.file === file), 'Mutable catalogue URLs must not be published');
+    assert(scripts.some(({ file: script }) => readFileSync(new URL(script, site), 'utf8').includes(fingerprinted)));
   }
+  assert(scripts.some(({ file }) => readFileSync(new URL(file, site), 'utf8').includes(context.build)),
+    'The app and worker must identify the same build');
   const manifest = JSON.parse(readFileSync(new URL('manifest.webmanifest', site), 'utf8'));
   assert.equal(manifest.name, 'FunRoads');
   assert.equal(manifest.short_name, 'FunRoads');

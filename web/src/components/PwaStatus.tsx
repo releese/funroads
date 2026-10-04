@@ -19,11 +19,13 @@ export function PwaStatus({ engaged, country = DEFAULT_COUNTRY }: { engaged: boo
             {ready ? ' Cached route details and the results list remain usable without map tiles.' : ''}
           </p>
           {!import.meta.env.PROD ? <p>Offline storage is disabled in this development preview.</p> : null}
-          {pwa.update ? <p><strong>Update available.</strong> Close all FunRoads browser tabs and installed app windows, then reopen to use it. Your current version stays together; reloading alone may not activate the update.</p> : null}
+          {pwa.updating ? <p><strong>Applying verified update…</strong> FunRoads will reopen automatically. Your browsing choices are preserved when browser storage is available.</p>
+            : pwa.update ? <p><strong>Update available.</strong> Refresh or reopen FunRoads to apply it, or use the check button below.</p> : null}
+          <p>Updates apply on refresh or open, including reopening the installed app. There is no background polling or automatic mid-session refresh. Offline apps keep their last complete version and check again on their next connected open.</p>
           {pwa.error ? <p>{pwa.error}</p> : null}
         </div>
         {import.meta.env.PROD && 'serviceWorker' in navigator ? <Button kind={KIND.secondary} shape={SHAPE.default} size={SIZE.compact}
-          onClick={() => { void checkPwa(); }} overrides={{ BaseButton: { style: { minHeight: '44px', marginTop: '12px' } } }}>Check offline data and updates</Button> : null}
+          onClick={() => { void checkPwa(); }} overrides={{ BaseButton: { style: { minHeight: '44px', marginTop: '12px' } } }}>Check for updates</Button> : null}
       </Notice>
       {!pwa.installed ? (
         <div style={{ fontSize: 14, lineHeight: '20px', marginTop: 12 }}>

@@ -11,7 +11,7 @@ import {
 } from './raw';
 import { CIRCUIT_INK, findOverlaps, spatialInfo, TINTS } from './spatial';
 import { haversineKm } from '../map/geo';
-import { mapsHandover, COMPACT_WAYPOINTS, DESKTOP_WAYPOINTS, type MapsHandover } from './gmaps';
+import { mapsHandover, DESKTOP_WAYPOINTS, type MapsHandover } from './gmaps';
 import { DEFAULT_COUNTRY, routeKey, type Country } from './countries';
 import { displayName } from './format';
 
@@ -90,7 +90,7 @@ export interface RouteView {
   end: LonLat;
   bbox: [number, number, number, number];
   line: LonLat[];
-  /** Whole-route links, never sections. Layout budgets do not detect the Maps app. */
+  /** Identical whole-route links on both layouts, never sections. */
   navigation: { desktop: MapsHandover | null; compact: MapsHandover | null };
   circuit: CircuitDetail | null;
   profile: RouteProfile;
@@ -120,10 +120,8 @@ export interface Catalogue {
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
 function navigation(line: LonLat[], loop: boolean): RouteView['navigation'] {
-  return {
-    desktop: mapsHandover(line, loop, DESKTOP_WAYPOINTS),
-    compact: mapsHandover(line, loop, COMPACT_WAYPOINTS),
-  };
+  const handover = mapsHandover(line, loop, DESKTOP_WAYPOINTS);
+  return { desktop: handover, compact: handover };
 }
 
 function routeProfile(r: RawDetail): RouteProfile {

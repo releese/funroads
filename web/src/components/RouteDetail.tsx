@@ -282,6 +282,7 @@ export const RouteDetail = forwardRef<HTMLHeadingElement, Props>(function RouteD
       {handover ? <footer className="fr-detail-navigation">
         <p id="maps-caveat" style={{ margin: '0 0 8px', fontSize: 12, lineHeight: '18px', color: tokens.hairlineMid }}>
           {handover.limited ? 'Google Maps point limits mean some route detail may not carry over. ' : ''}{MAPS_CAVEAT}
+          {compact ? ' Mobile browsers may keep only three intermediate points. Open in the Google Maps app and check the route before driving.' : ''}
         </p>
         <Button $as="a" href={handover.href} target="_blank" rel="noopener noreferrer" aria-label="Open in Google Maps"
           aria-describedby="maps-caveat" title="Open in Google Maps" kind={BKIND.secondary} shape={SHAPE.default} size={SIZE.compact}

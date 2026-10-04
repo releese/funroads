@@ -263,14 +263,15 @@ describe('navigation links from route lines', () => {
     expect(wp.filter((p) => p[0] > 4.81).length).toBeGreaterThan(0);
   });
 
-  it('offers a phone link within the mobile waypoint limit for every route type', () => {
+  it('offers the same nine-point-budget link on phones for every route type', () => {
     const { doc } = validateLinkedDoc({
       rides: [{ id: 'l1', name: 'Loop', type: 'circuit', km: 40, fun_km: 20, score: { ...score, total: 50 }, line, roads: [], windows: ['2026-09-28 08:00'] }],
     });
     const cat = buildCatalogue(validateRoutesDoc({ routes: [], sprints: [sprint('a')] }).doc, doc);
     for (const r of cat.routes) {
       const n = new URL(r.navigation.compact!.href).searchParams.get('waypoints')?.split('|').length ?? 0;
-      expect(n).toBeLessThanOrEqual(3);
+      expect(n).toBeLessThanOrEqual(9);
+      expect(r.navigation.compact).toBe(r.navigation.desktop);
     }
   });
 

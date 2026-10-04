@@ -25,7 +25,8 @@ it.skipIf(!hasCatalogue)('validates the real Estonia national catalogue without 
     expect(r.key).toMatch(/^ee:(circuit|sprint|linked):/);
     expect([r.name, ...r.roads.map((road) => road.name), ...r.anchorRoads, r.circuit?.areaName ?? ''].join(' ')).not.toContain('\u2014');
     expect(r.driveMin).toBeGreaterThan(0);
-    for (const [layout, budget] of [['compact', 3], ['desktop', 9]] as const) {
+    expect(r.navigation.compact).toBe(r.navigation.desktop);
+    for (const [layout, budget] of [['compact', 9], ['desktop', 9]] as const) {
       const handover = r.navigation[layout]!;
       expect(handover).not.toBeNull();
       expect(handover.points[0].point).toEqual(r.line[0]);

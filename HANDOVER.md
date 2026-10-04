@@ -2,6 +2,57 @@
 
 ## Start here: current state and next work
 
+### Nine-point mobile Maps links and refresh/open PWA updates
+
+Current release changes:
+
+- Mobile and desktop request the same whole-route Google Maps URL with up to
+  nine intermediate points. Mobile copy warns that the browser may retain only
+  three; native Maps waypoint retention still requires real-device testing.
+- Updates are checked on page load/refresh, reopening a standalone PWA, return
+  from the back-forward cache, or the manual **Check for updates** button inside
+  Map information → App and data. There is no interval polling, reconnect check,
+  ordinary-tab foreground check, or unsolicited mid-session reload.
+- Updates initiated by an open/check install their entire integrity-checked
+  offline release before explicit activation and one reload. Other already-open
+  tabs keep their current UI until their next open/refresh/check. Incomplete
+  installs preserve the current release; offline opens use its cached data.
+- Production catalogue filenames contain their SHA-256 digest. The compiled
+  app uses those immutable URLs and integrity checks even before worker control.
+  App and worker share a content-derived build identifier; unchanged rebuilds
+  keep the same worker/cache version. Installation reuses already-verified
+  unchanged immutable catalogues, fonts and assets, avoiding route-data downloads
+  for UI-only releases. Old immutable files remain available to older tabs.
+  Cache cleanup never removes another app's cache or a pending/newer release.
+- Tab-local sessionStorage restores home, ranking, search/filters, favorites-only,
+  collection, result pagination, Browse state and scroll positions on update or
+  refresh. Route/detail context stays in the URL; saved favorites/country retain
+  their existing localStorage keys. Blocked storage falls back to safe defaults.
+- Existing installations running the earlier code may need a one-time close of
+  every old tab/app window and reopen to acquire this update behavior. Offline,
+  failed-download and OS-suspended clients cannot be guaranteed current at deploy
+  time. No service-worker-free browser auto-update mechanism is claimed.
+
+This supersedes the earlier three-point compact budget and close-all-only update
+behavior documented below.
+
+Validation: all 169 Vitest tests and 13 Node catalogue/worker checks passed.
+Typecheck, production packaging/integrity checks and two consecutive identical
+builds passed; unchanged builds produced byte-identical service workers.
+Local Chromium checks confirmed nine requested points on desktop and a 390 px
+mobile client, the mobile caveat, and the update notice/action inside App and data.
+A newly opened same-origin iframe client updated while its older parent retained
+its release and state. Explicit update restored Haarlem, Scenic and 240 px Browse
+scroll; the final release cleaned retired caches. A native unchanged-worker check
+left the page loaded, created no installer/waiting worker and added no catalogue
+requests. Separate desktop tabs were blocked by the embedded browser's target
+policy, so the dual-client check used an iframe, not a claimed two-tab/device test.
+Physical Android/iOS Maps handoff and deployed GitHub Pages updates remain untested.
+Existing Base Web React defaultProps warnings remain.
+Pre-publication review found and fixed an installation/standalone-mode mix-up:
+installing from a normal tab must not enable foreground update checks in that
+tab. A regression test keeps ordinary tabs unchanged after `appinstalled`.
+
 ### Latest shared design-comment audit
 
 The following comments are implemented in the shared NL/EE UI:

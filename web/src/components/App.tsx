@@ -12,6 +12,8 @@ import { buildSearchIndex } from '../data/search';
 import { loadAll } from '../data/load';
 import { belongsToCountry, countryFromLocation, type Country } from '../data/countries';
 import { displayName, formatDate, plural } from '../data/format';
+import { readBrowsingState, saveBrowsingState } from '../data/browsing-state';
+import { BEFORE_UPDATE_EVENT, usePwaState } from '../pwa';
 import { MapView, type FitRequest, type MapStatus, type Padding } from '../map/MapView';
 import { pointAtFraction, unionBBox, MAX_CONTEXT_LINES } from '../map/geo';
 import { useDebounced, useMediaQuery } from '../hooks';
@@ -40,27 +42,32 @@ export function App({ dataBase, country = countryFromLocation() }: { dataBase: s
   const reducedMotion = useMediaQuery(MQ.reducedMotion);
   const narrowWorkspace = useMediaQuery(MQ.narrowWorkspace);
   const shortViewport = useMediaQuery(MQ.shortViewport);
+  const pwa = usePwaState();
+  const [restored] = useState(() => readBrowsingState(country));
+  const previousCountry = useRef(country.id);
+  const restoringResults = useRef(!!restored);
+  const restoringDetailScroll = useRef(!!restored);
 
   const [load, setLoad] = useState<LoadState>({ status: 'loading', catalogue: null, problems: [], progress: '', retryable: false });
-  const [filters, setFilters] = useState<Filters>(() => ({ ...DEFAULT_FILTERS, home: country.homes[0] }));
+  const [filters, setFilters] = useState<Filters>(() => restored?.filters ?? ({ ...DEFAULT_FILTERS, home: country.homes[0] }));
   const [selectedKey, setSelectedKey] = useState<string | null>(() => {
     const key = readRouteLocation().key;
     return key && belongsToCountry(key, country) ? key : null;
   });
   const [hoverKey, setHoverKey] = useState<string | null>(null);
   const [fit, setFit] = useState<FitRequest | null>(null);
-  const [shown, setShown] = useState(PAGE_SIZE);
+  const [shown, setShown] = useState(restored?.shown ?? PAGE_SIZE);
   const [mapStatus, setMapStatus] = useState<MapStatus>('loading');
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(restored?.sheetOpen ?? false);
   const [detailOpen, setDetailOpen] = useState(() => readRouteLocation().detail);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
   const [mapAttribution, setMapAttribution] = useState<HTMLElement | null>(null);
   const [cursorKm, setCursorKm] = useState<number | null>(null);
   const [favs, setFavs] = useState<Set<string>>(() => loadFavorites());
-  const [favOnly, setFavOnly] = useState(false);
+  const [favOnly, setFavOnly] = useState(restored?.favOnly ?? false);
   const [favNames, setFavNames] = useState<Record<string, string>>(() => loadFavoriteNames());
-  const [collectionId, setCollectionId] = useState<string | null>(null);
+  const [collectionId, setCollectionId] = useState<string | null>(restored?.collectionId ?? null);
   const [reloadToken, setReloadToken] = useState(0);
   const [saveFeedback, setSaveFeedback] = useState('');
 
@@ -75,12 +82,25 @@ export function App({ dataBase, country = countryFromLocation() }: { dataBase: s
   const opener = useRef<HTMLElement | null>(null);
   const sheetHandle = useRef<HTMLButtonElement>(null);
   const sheetBody = useRef<HTMLDivElement>(null);
-  const browseScroll = useRef(0);
+  const browseScroll = useRef(restored?.browseScroll ?? 0);
   const detailHeading = useRef<HTMLHeadingElement>(null);
   const shellMain = useRef<HTMLDivElement>(null);
   const nonce = useRef(0);
   const dismissOnly = useRef(false);
   const returningKey = useRef<string | null>(null);
+
+  useEffect(() => {
+    const save = () => saveBrowsingState(country, {
+      filters, favOnly, collectionId, shown, sheetOpen, browseScroll: browseScroll.current,
+      detailScroll: document.querySelector<HTMLElement>('.fr-detail-content')?.scrollTop ?? 0,
+    });
+    window.addEventListener(BEFORE_UPDATE_EVENT, save);
+    window.addEventListener('pagehide', save);
+    return () => {
+      window.removeEventListener(BEFORE_UPDATE_EVENT, save);
+      window.removeEventListener('pagehide', save);
+    };
+  }, [country.id, filters, favOnly, collectionId, shown, sheetOpen]);
 
   useEffect(() => {
     if (!saveFeedback) return;
@@ -144,6 +164,8 @@ export function App({ dataBase, country = countryFromLocation() }: { dataBase: s
   }, [dataBase, reloadToken, country.id]);
 
   useEffect(() => {
+    if (previousCountry.current === country.id) return;
+    previousCountry.current = country.id;
     setFilters({ ...DEFAULT_FILTERS, home: country.homes[0] });
     setCollectionId(null);
     setHoverKey(null);
@@ -206,7 +228,10 @@ export function App({ dataBase, country = countryFromLocation() }: { dataBase: s
   if (selected && favOnly && !favs.has(selected.key)) excludedReasons.push('It is not saved, so Favorites only hides it');
   const announced = useDebounced(load.status === 'ready' ? `${plural(result.results.length, 'route')} match` : '', 700);
 
-  useEffect(() => setShown(PAGE_SIZE), [filters, favOnly, collectionId]);
+  useEffect(() => {
+    if (restoringResults.current) restoringResults.current = false;
+    else setShown(PAGE_SIZE);
+  }, [filters, favOnly, collectionId]);
 
   const detailVisible = !!selected && detailOpen;
   const padding: Padding = { top: 72, right: 64, bottom: selected && !detailVisible ? isMobile ? 224 : 168 : 76, left: 24 };
@@ -268,8 +293,19 @@ export function App({ dataBase, country = countryFromLocation() }: { dataBase: s
     if (isMobile || detailOpen) requestAnimationFrame(() => sheetHandle.current?.focus({ preventScroll: true }));
   };
   useEffect(() => {
-    if (sheetOpen && sheetBody.current) sheetBody.current.scrollTop = browseScroll.current;
-  }, [sheetOpen]);
+    if (sheetOpen && load.status === 'ready' && sheetBody.current) sheetBody.current.scrollTop = browseScroll.current;
+  }, [sheetOpen, load.status]);
+
+  useEffect(() => {
+    if (load.status !== 'ready' || !restoringDetailScroll.current) return;
+    restoringDetailScroll.current = false;
+    if (!detailVisible || !restored) return;
+    const frame = requestAnimationFrame(() => {
+      const body = document.querySelector<HTMLElement>('.fr-detail-content');
+      if (body) body.scrollTop = restored.detailScroll;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [load.status, detailVisible, restored]);
 
   const clearSelection = () => {
     setSelectedKey(null);
@@ -580,7 +616,7 @@ export function App({ dataBase, country = countryFromLocation() }: { dataBase: s
       <div className="fr-visually-hidden" aria-live="polite" aria-atomic="true">
         {announced}
       </div>
-      {saveFeedback ? <div role="status" className="fr-save-feedback">{saveFeedback}</div> : null}
+      {pwa.updating || saveFeedback ? <div role="status" className="fr-save-feedback">{pwa.updating ? 'Applying verified update…' : saveFeedback}</div> : null}
 
       <Modal isOpen={filtersOpen} onClose={() => { setFiltersOpen(false); closeSurfaceLocation(); }} name="Route filters" animate={!reducedMotion}
         overrides={{ Dialog: { props: { 'aria-labelledby': 'filters-heading' }, style: { maxHeight: 'calc(100dvh - 32px)', display: 'flex', flexDirection: 'column', margin: '16px' } } }}>

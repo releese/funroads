@@ -220,6 +220,11 @@ Close details preserves route selection, filters and return context.
 Navigate opens Google Maps,
 identified in its accessible label and tooltip; returning already restores the
 selected map route, so there is no duplicate "Show on map" action.
+Mobile and desktop request the same route with up to nine intermediate points.
+Mobile guidance explains that a browser may retain only three points and asks
+users to open Maps and check the route before driving. Updates apply on refresh
+or open, not periodic polling or unsolicited mid-session reloads. Keep the manual
+"Check for updates" action inside Map information → App and data.
 Keep the summary first: route name/type, fun score, length, estimated route
 drive time and straight-line distance from the selected home, in that order.
 Heads-up and route flags

@@ -1,8 +1,9 @@
 import type { LonLat } from './raw';
 import { cumulativeKm, pointAtFraction } from '../map/geo';
 
-export const COMPACT_WAYPOINTS = 3;
 export const DESKTOP_WAYPOINTS = 9;
+// Request the same route on phones; the receiving Maps client may retain fewer.
+export const COMPACT_WAYPOINTS = DESKTOP_WAYPOINTS;
 export const MAPS_URL_LIMIT = 2048;
 export const SHAPE_DEVIATION_KM = 0.1;
 export const MAX_POINT_GAP_KM = 5;

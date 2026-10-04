@@ -71,10 +71,11 @@ describe.skipIf(!hasData)('pinned national data', () => {
     expect(res.some((r) => r.key.includes(ride!.id))).toBe(true);
   });
 
-  it('keeps the compact phone navigation link within three waypoints', () => {
+  it('requests the same whole-route link on phones and desktop, within nine waypoints', () => {
     for (const r of cat.routes) {
       const stops = new URL(r.navigation.compact!.href).searchParams.get('waypoints');
-      expect(stops ? stops.split('|').length : 0).toBeLessThanOrEqual(3);
+      expect(stops ? stops.split('|').length : 0).toBeLessThanOrEqual(9);
+      expect(r.navigation.compact).toBe(r.navigation.desktop);
     }
   });
 
@@ -159,7 +160,7 @@ describe.skipIf(!hasData)('pinned national data', () => {
 
   it('requests each whole route with one ordered line-derived Maps link per layout', () => {
     for (const r of cat.routes) {
-      for (const [layout, budget] of [['compact', 3], ['desktop', 9]] as const) {
+      for (const [layout, budget] of [['compact', 9], ['desktop', 9]] as const) {
         const handover = r.navigation[layout]!;
         expect(handover).not.toBeNull();
         expect(handover.points[0].point).toEqual(r.line[0]);

@@ -32,13 +32,15 @@ algorithms are reused. There is no geocoder.
 
 | Country | Build inputs | Published files |
 | --- | --- | --- |
-| Netherlands | `data/cache/{routes,linked}.json` | `data/nl/{routes,linked}.json` |
-| Estonia | `data/ee/cache/{routes,linked}.json` | `data/ee/{routes,linked}.json` |
+| Netherlands | `data/cache/{routes,linked}.json` | `data/nl/{routes,linked}.<sha256>.json` |
+| Estonia | `data/ee/cache/{routes,linked}.json` | `data/ee/{routes,linked}.<sha256>.json` |
 
 Paths above are relative to the repository root for inputs and the website root
 for published files. Existing Netherlands pipeline outputs are not moved or
-regenerated. Development also retains the old `/data/routes.json` and
-`/data/linked.json` aliases.
+regenerated. Production uses content-hashed catalogue filenames, pinned in the
+compiled app with integrity checks, so older code cannot silently load a newer
+catalogue. Development keeps unhashed country paths and the old
+`/data/routes.json` and `/data/linked.json` aliases.
 
 Source-specific pipelines must emit this shared interchange contract:
 

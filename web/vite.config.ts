@@ -10,8 +10,46 @@ const root = path.resolve(import.meta.dirname, '..');
 const outDir = path.join(root, 'site');
 
 function funroadsData(): Plugin {
+  let buildId = 'development';
+  let releases: (CatalogueFile & { bytes: Buffer; integrity: string })[] = [];
+  const virtualId = 'virtual:funroads-release';
   return {
     name: 'funroads-data',
+    configResolved(config) {
+      if (config.command !== 'build') return;
+      releases = publishedCatalogues(root).map((entry) => {
+        const bytes = fs.readFileSync(entry.source);
+        const hash = createHash('sha256').update(bytes).digest();
+        return {
+          ...entry, bytes, integrity: `sha256-${hash.toString('base64')}`,
+          file: entry.file.replace(/\.json$/, `.${hash.toString('hex')}.json`),
+        };
+      });
+      const inputs = [
+        'vite.config.ts', 'package.json', 'package-lock.json', 'tsconfig.json',
+        'countries.json', 'catalogues.mjs', 'index.html', 'service-worker.js',
+        ...['src', 'public'].flatMap((directory) =>
+          fs.readdirSync(path.join(import.meta.dirname, directory), { recursive: true, withFileTypes: true })
+            .filter((entry) => entry.isFile())
+            .map((entry) => path.relative(import.meta.dirname, path.join(entry.parentPath, entry.name)).replaceAll('\\', '/'))),
+      ].sort();
+      const hash = createHash('sha256');
+      for (const file of inputs) hash.update(file).update('\0').update(fs.readFileSync(path.join(import.meta.dirname, file)));
+      for (const { file, integrity } of releases) hash.update(file).update(integrity);
+      buildId = hash.digest('hex').slice(0, 20);
+    },
+    resolveId(id) {
+      if (id === virtualId) return `\0${virtualId}`;
+    },
+    load(id) {
+      if (id !== `\0${virtualId}`) return;
+      const catalogues = Object.fromEntries(releases.map((entry) => [
+        entry.file.replace(/\.[a-f0-9]{64}\.json$/, '.json'),
+        { file: entry.file, integrity: entry.integrity },
+      ]));
+      return `export const BUILD_ID = ${JSON.stringify(buildId)};
+export const CATALOGUES = ${JSON.stringify(catalogues)};`;
+    },
     configureServer(server) {
       const files: CatalogueFile[] = catalogueFiles(root);
       server.middlewares.use((req, res, next) => {
@@ -35,16 +73,15 @@ function funroadsData(): Plugin {
       });
     },
     writeBundle(_, bundle) {
-      const catalogues: CatalogueFile[] = publishedCatalogues(root);
-      for (const { source, file } of catalogues) {
+      for (const { bytes, file } of releases) {
         const destination = path.join(outDir, file);
         fs.mkdirSync(path.dirname(destination), { recursive: true });
-        fs.copyFileSync(source, destination);
+        fs.writeFileSync(destination, bytes);
       }
       const files = [
         ...Object.keys(bundle),
         'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png',
-        ...catalogues.map(({ file }) => file),
+        ...releases.map(({ file }) => file),
       ].sort();
       const entries = files.map((file) => ({
         file,
@@ -53,6 +90,7 @@ function funroadsData(): Plugin {
       const template = fs.readFileSync(path.join(import.meta.dirname, 'service-worker.js'), 'utf8');
       const version = createHash('sha256').update(template).update(JSON.stringify(entries)).digest('hex').slice(0, 20);
       fs.writeFileSync(path.join(outDir, 'sw.js'), template
+        .replace('__BUILD_ID__', JSON.stringify(buildId))
         .replace('__VERSION__', JSON.stringify(version))
         .replace('__ENTRIES__', JSON.stringify(entries)));
     },
